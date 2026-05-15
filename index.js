@@ -1,51 +1,43 @@
-const { Telegraf } = require('telegraf');
+const { Telegraf, Markup } = require('telegraf');
 const express = require('express');
 
 const app = express();
-app.get('/', (req, res) => res.send('Sistema Activo 🚀'));
+app.get('/', (req, res) => res.send('Bot de Pagos Directos Activo 🚀'));
 app.listen(process.env.PORT || 3000);
 
 const bot = new Telegraf(process.env.BOT_TOKEN.trim());
 
+// REEMPLAZA ESTO CON TU PROPIA DIRECCIÓN DE WALLET (Red TON)
+const MI_BILLETERA_USDT = "TU_DIRECCION_DE_WALLET_AQUI"; 
+
 bot.command('cobrar', async (ctx) => {
     const partes = ctx.message.text.split(/\s+/).filter(p => p.length > 0);
-    const monto = partes[1]; // Ejemplo: 10
-    const modelo = partes[2]; // Ejemplo: Maria
+    const monto = partes[1];
+    const modelo = partes[2];
 
     if (!monto || isNaN(monto) || !modelo) {
         return ctx.reply('❌ Usa: /cobrar 10 Maria');
     }
 
-    try {
-        await ctx.replyWithInvoice({
-            title: `Pago para ${modelo}`,
-            description: `Puedes pagar con tarjeta o usando tu Billetera de Telegram (Wallet)`,
-            payload: `pago_${modelo}_${Date.now()}`,
-            provider_token: process.env.PROVIDER_TOKEN.trim(),
-            currency: 'USD',
-            prices: [{ label: 'Total', amount: Math.round(parseFloat(monto) * 100) }], // Convierte a centavos
-            start_parameter: 'pago-seguro'
-        });
-        console.log(`✅ Factura generada para ${modelo}`);
-    } catch (e) {
-        console.error("Error al generar factura:", e.description);
-        ctx.reply("❌ Error: No se pudo conectar con la pasarela de pagos.");
-    }
+    const mensaje = `✨ **PAGO PARA: ${modelo}** ✨\n\n` +
+                    `💰 **Monto:** ${monto} USDT\n` +
+                    `📱 **Método:** Billetera de Telegram (Wallet)\n\n` +
+                    `1️⃣ Haz clic en el botón de abajo para pagar.\n` +
+                    `2️⃣ Envía el capture del pago aquí mismo.`;
+
+    // Este enlace abre la Wallet del cliente para enviarte a ti directamente
+    const urlPago = `https://t.me/wallet?startattach=external_pay__${MI_BILLETERA_USDT}`;
+
+    await ctx.replyWithMarkdown(mensaje, Markup.inlineKeyboard([
+        [Markup.button.url('🚀 PAGAR CON WALLET', 'https://t.me/wallet')]
+    ]));
 });
 
-// Aviso de pago exitoso
-bot.on('successful_payment', async (ctx) => {
-    const info = ctx.message.successful_payment;
-    const modelo = info.invoice_payload.split('_')[1];
-    const msg = `✅ **¡PAGO CONFIRMADO!**\n\n👤 Modelo: ${modelo}\n💰 Monto: ${info.total_amount / 100} USD\n💳 Método: Telegram Wallet / Ammer`;
-    
-    await bot.telegram.sendMessage(process.env.GRUPO_CONTROL_ID.trim(), msg, { parse_mode: 'Markdown' });
+// Escuchar cuando el cliente mande la foto del comprobante
+bot.on('photo', async (ctx) => {
+    await ctx.reply("✅ Gracias. Tu pago está siendo verificado por el equipo.");
+    // Reenvía la foto a tu grupo de control
+    await ctx.forwardMessage(process.env.GRUPO_CONTROL_ID);
 });
 
-// Inicia el bot limpiando errores previos
-bot.launch({ dropPendingUpdates: true }).then(() => {
-    console.log("🚀 Bot de Pagos Wallet iniciado correctamente");
-});
-
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));
+bot.launch({ dropPendingUpdates: true });
