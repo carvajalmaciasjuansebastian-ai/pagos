@@ -2,42 +2,45 @@ const { Telegraf } = require('telegraf');
 const express = require('express');
 
 const app = express();
-app.get('/', (req, res) => res.send('Servidor de Pagos Activo 🚀'));
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Puerto ${PORT} abierto`));
+app.get('/', (req, res) => res.send('Sistema de Pagos Ammer Online 🚀'));
+app.listen(process.env.PORT || 3000);
 
 const bot = new Telegraf(process.env.BOT_TOKEN.trim());
 
-bot.command('cobrar', (ctx) => {
-    // Esto limpia el texto y separa el monto y el nombre correctamente
-    const partes = ctx.message.text.split(/\s+/).filter(part => part.length > 0);
-    const monto = partes[1]; 
+bot.command('cobrar', async (ctx) => {
+    // Filtra espacios vacíos para evitar el error de "Formato incorrecto"
+    const partes = ctx.message.text.split(/\s+/).filter(p => p.length > 0);
+    const monto = partes[1];
     const modelo = partes[2];
 
     if (!monto || isNaN(monto) || !modelo) {
-        return ctx.reply('❌ **Escribe exactamente así:**\n`/cobrar 10 Maria`', { parse_mode: 'Markdown' });
+        return ctx.reply('❌ **Escribe así:**\n`/cobrar 10 Maria`', { parse_mode: 'Markdown' });
     }
 
     try {
-        return ctx.replyWithInvoice({
+        await ctx.replyWithInvoice({
             title: `Pago para: ${modelo}`,
-            description: `Servicio de videollamada con ${modelo}`,
+            description: `Servicio contratado con ${modelo}`,
             payload: `pago_${modelo}_${Date.now()}`,
             provider_token: process.env.PROVIDER_TOKEN.trim(),
             currency: 'USD',
             prices: [{ label: 'Total', amount: Math.round(parseFloat(monto) * 100) }],
             start_parameter: 'pago'
         });
+        console.log(`✅ Factura generada para ${modelo}`);
     } catch (error) {
-        ctx.reply("❌ Error al generar el enlace de pago.");
+        console.error("Error Telegram:", error.description);
+        ctx.reply(`❌ Error de pasarela: ${error.description}`);
     }
 });
 
-bot.on('successful_payment', (ctx) => {
+bot.on('successful_payment', async (ctx) => {
     const info = ctx.message.successful_payment;
     const modelo = info.invoice_payload.split('_')[1];
-    const msg = `✅ **¡PAGO CONFIRMADO!**\n\n💰 Monto: ${info.total_amount / 100} USD\n👤 Modelo: ${modelo}`;
-    bot.telegram.sendMessage(process.env.GRUPO_CONTROL_ID, msg, { parse_mode: 'Markdown' });
+    const msg = `💰 **¡VENTA EXITOSA!**\n\n👤 Modelo: ${modelo}\n💵 Monto: ${info.total_amount / 100} USD`;
+    
+    // Envía confirmación al grupo de control
+    await bot.telegram.sendMessage(process.env.GRUPO_CONTROL_ID, msg, { parse_mode: 'Markdown' });
 });
 
-bot.launch().then(() => console.log("🚀 Bot funcionando"));
+bot.launch();
