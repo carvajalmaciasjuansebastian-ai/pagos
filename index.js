@@ -1,83 +1,53 @@
 const { Telegraf } = require('telegraf');
 const express = require('express');
 
-// Configuración de Express para que Render mantenga el servicio activo
 const app = express();
-app.get('/', (req, res) => res.send('Bot de Pagos Online Activo 🚀'));
+app.get('/', (req, res) => res.send('Bot de Pagos Activo 🚀'));
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Servidor web en puerto ${PORT}`));
+app.listen(PORT, () => console.log(`Servidor en puerto ${PORT}`));
 
-// Verificación de Variables de Entorno
-const BOT_TOKEN = process.env.BOT_TOKEN;
+const bot = new Telegraf(process.env.BOT_TOKEN);
 const PROVIDER_TOKEN = process.env.PROVIDER_TOKEN;
 const GRUPO_CONTROL_ID = process.env.GRUPO_CONTROL_ID;
 
-if (!BOT_TOKEN || !PROVIDER_TOKEN || !GRUPO_CONTROL_ID) {
-    console.error("❌ ERROR: Faltan variables de entorno en Render.");
-    process.exit(1);
-}
-
-const bot = new Telegraf(BOT_TOKEN);
-
-// COMANDO COBRAR
 bot.command('cobrar', (ctx) => {
-    // Dividimos el mensaje por espacios, quitando los vacíos
-    const args = ctx.message.text.split(/\s+/);
+    // 1. Limpiamos el texto para quitar el @nombre_del_bot si aparece
+    const rawText = ctx.message.text.replace(/^\/cobrar(@\w+)?\s*/, '');
     
-    // args[0] = /cobrar
-    // args[1] = monto
-    // args[2] = nombre de la modelo
-    const monto = args[1];
-    const modelo = args[2];
+    // 2. Dividimos por espacios y filtramos elementos vacíos
+    const args = rawText.split(/\s+/).filter(arg => arg.length > 0);
+    
+    const monto = args[0];
+    const modelo = args[1];
 
-    // Validación: si no pone el monto o el nombre, le enseñamos cómo
+    console.log(`Intento de cobro - Monto: ${monto}, Modelo: ${modelo}`);
+
     if (!monto || isNaN(monto) || !modelo) {
-        return ctx.reply('❌ Formato incorrecto.\n\nUsa: /cobrar [monto] [Nombre]\nEjemplo: /cobrar 10 Maria');
+        return ctx.reply('❌ **Formato incorrecto**\n\nEscribe exactamente así:\n`/cobrar 10 Maria`', { parse_mode: 'Markdown' });
     }
 
     try {
         return ctx.replyWithInvoice({
             title: `Pago para: ${modelo}`,
-            description: `Servicio contratado con ${modelo}`,
+            description: `Acceso a sesión con ${modelo}`,
             payload: `pago_${modelo}_${Date.now()}`,
             provider_token: PROVIDER_TOKEN,
             currency: 'USD',
-            prices: [
-                { label: `Servicio ${modelo}`, amount: parseInt(monto) * 100 } // Telegram usa centavos (100 = 1 USD)
-            ],
-            start_parameter: 'pago-modelo'
+            prices: [{ label: 'Servicio Premium', amount: parseInt(monto) * 100 }],
+            start_parameter: 'pago'
         });
-    } catch (error) {
-        console.error("Error al generar factura:", error);
-        ctx.reply("❌ Hubo un error al generar el botón de pago.");
+    } catch (e) {
+        ctx.reply("❌ Error al conectar con la pasarela de pagos.");
     }
 });
 
-// NOTIFICACIÓN DE PAGO EXITOSO
-bot.on('successful_payment', async (ctx) => {
-    const paymentInfo = ctx.message.successful_payment;
-    const modelo = paymentInfo.invoice_payload.split('_')[1];
-    const montoFinal = paymentInfo.total_amount / 100;
-
-    const mensajeExito = `✅ **¡PAGO CONFIRMADO!**\n\n` +
-                         `💰 Monto: ${montoFinal} USD\n` +
-                         `👤 Modelo: ${modelo}\n` +
-                         `🆔 ID Transacción: ${paymentInfo.provider_payment_charge_id}`;
-
-    // Avisa al grupo de control (el de los -5066...)
-    await ctx.telegram.sendMessage(GRUPO_CONTROL_ID, mensajeExito, { parse_mode: 'Markdown' });
+bot.on('successful_payment', (ctx) => {
+    const info = ctx.message.successful_payment;
+    const modelo = info.invoice_payload.split('_')[1];
+    const msg = `✅ **¡PAGO RECIBIDO!**\n\n💰 Monto: ${info.total_amount / 100} USD\n👤 Modelo: ${modelo}`;
     
-    // Avisa al cliente en el chat actual
-    await ctx.reply(`¡Gracias! Tu pago para ${modelo} ha sido procesado con éxito.`);
+    bot.telegram.sendMessage(GRUPO_CONTROL_ID, msg, { parse_mode: 'Markdown' });
+    ctx.reply(`¡Gracias! Tu pago para ${modelo} ha sido confirmado.`);
 });
 
-// LANZAMIENTO
-bot.launch().then(() => {
-    console.log('🚀 Bot de Pagos Encuentros Deluxe en línea...');
-}).catch((err) => {
-    console.error('❌ Error al iniciar el bot:', err);
-});
-
-// Manejo de cierre limpio
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));
+bot.launch().then(() => console.log("🚀 Bot listo para cobrar"));
