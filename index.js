@@ -2,52 +2,47 @@ const { Telegraf } = require('telegraf');
 const express = require('express');
 
 const app = express();
-app.get('/', (req, res) => res.send('Bot de Pagos Activo 🚀'));
+app.get('/', (req, res) => res.send('Bot de Pagos Online Activo 🚀'));
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Servidor en puerto ${PORT}`));
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
-const PROVIDER_TOKEN = process.env.PROVIDER_TOKEN;
-const GRUPO_CONTROL_ID = process.env.GRUPO_CONTROL_ID;
 
 bot.command('cobrar', (ctx) => {
-    // 1. Limpiamos el texto para quitar el @nombre_del_bot si aparece
-    const rawText = ctx.message.text.replace(/^\/cobrar(@\w+)?\s*/, '');
-    
-    // 2. Dividimos por espacios y filtramos elementos vacíos
-    const args = rawText.split(/\s+/).filter(arg => arg.length > 0);
-    
+    // Esta línea limpia el comando para que no importe si hay espacios extras
+    const fullText = ctx.message.text.trim();
+    const args = fullText.split(/\s+/).filter(part => part.toLowerCase() !== '/cobrar');
+
     const monto = args[0];
     const modelo = args[1];
 
-    console.log(`Intento de cobro - Monto: ${monto}, Modelo: ${modelo}`);
+    console.log(`Intento de cobro: Monto=${monto}, Modelo=${modelo}`);
 
     if (!monto || isNaN(monto) || !modelo) {
-        return ctx.reply('❌ **Formato incorrecto**\n\nEscribe exactamente así:\n`/cobrar 10 Maria`', { parse_mode: 'Markdown' });
+        return ctx.reply('❌ **Formato incorrecto**\n\nEscribe así: `/cobrar 10 Maria`', { parse_mode: 'Markdown' });
     }
 
     try {
         return ctx.replyWithInvoice({
-            title: `Pago para: ${modelo}`,
-            description: `Acceso a sesión con ${modelo}`,
+            title: `Sesión con ${modelo}`,
+            description: `Pago por servicio de videollamada`,
             payload: `pago_${modelo}_${Date.now()}`,
-            provider_token: PROVIDER_TOKEN,
+            provider_token: process.env.PROVIDER_TOKEN,
             currency: 'USD',
-            prices: [{ label: 'Servicio Premium', amount: parseInt(monto) * 100 }],
+            prices: [{ label: 'Servicio', amount: Math.round(parseFloat(monto) * 100) }],
             start_parameter: 'pago'
         });
-    } catch (e) {
-        ctx.reply("❌ Error al conectar con la pasarela de pagos.");
+    } catch (error) {
+        console.error("Error factura:", error);
+        ctx.reply("❌ Error al generar el botón de pago.");
     }
 });
 
 bot.on('successful_payment', (ctx) => {
     const info = ctx.message.successful_payment;
     const modelo = info.invoice_payload.split('_')[1];
-    const msg = `✅ **¡PAGO RECIBIDO!**\n\n💰 Monto: ${info.total_amount / 100} USD\n👤 Modelo: ${modelo}`;
-    
-    bot.telegram.sendMessage(GRUPO_CONTROL_ID, msg, { parse_mode: 'Markdown' });
-    ctx.reply(`¡Gracias! Tu pago para ${modelo} ha sido confirmado.`);
+    const msg = `✅ **¡PAGO CONFIRMADO!**\n\n💰 Monto: ${info.total_amount / 100} USD\n👤 Modelo: ${modelo}`;
+    bot.telegram.sendMessage(process.env.GRUPO_CONTROL_ID, msg, { parse_mode: 'Markdown' });
 });
 
-bot.launch().then(() => console.log("🚀 Bot listo para cobrar"));
+bot.launch().then(() => console.log("🚀 Bot de Pagos en línea"));
