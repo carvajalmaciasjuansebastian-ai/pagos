@@ -2,13 +2,13 @@ const { Telegraf, Markup } = require('telegraf');
 const express = require('express');
 
 const app = express();
-app.get('/', (req, res) => res.send('Bot de Pagos Directos Activo 🚀'));
+app.get('/', (req, res) => res.send('Bot de Pagos Directos Wallet Activo 🚀'));
 app.listen(process.env.PORT || 3000);
 
 const bot = new Telegraf(process.env.BOT_TOKEN.trim());
 
-// REEMPLAZA ESTO CON TU PROPIA DIRECCIÓN DE WALLET (Red TON)
-const MI_BILLETERA_USDT = "TU_DIRECCION_DE_WALLET_AQUI"; 
+// Tu dirección de Wallet (Red TON)
+const MI_BILLETERA = "UQALq2ZN6CZo-V2L5RGA972GXIyTQrFPnxgajotHP2olu_t1"; 
 
 bot.command('cobrar', async (ctx) => {
     const partes = ctx.message.text.split(/\s+/).filter(p => p.length > 0);
@@ -19,25 +19,30 @@ bot.command('cobrar', async (ctx) => {
         return ctx.reply('❌ Usa: /cobrar 10 Maria');
     }
 
-    const mensaje = `✨ **PAGO PARA: ${modelo}** ✨\n\n` +
-                    `💰 **Monto:** ${monto} USDT\n` +
-                    `📱 **Método:** Billetera de Telegram (Wallet)\n\n` +
-                    `1️⃣ Haz clic en el botón de abajo para pagar.\n` +
-                    `2️⃣ Envía el capture del pago aquí mismo.`;
-
-    // Este enlace abre la Wallet del cliente para enviarte a ti directamente
-    const urlPago = `https://t.me/wallet?startattach=external_pay__${MI_BILLETERA_USDT}`;
+    const mensaje = `💎 **PAGO PARA: ${modelo.toUpperCase()}** 💎\n\n` +
+                    `💰 **Monto a enviar:** \`${monto}\` USDT\n` +
+                    `🏦 **Red:** TON Network\n\n` +
+                    `📌 **Dirección de destino (Toca para copiar):**\n\`${MI_BILLETERA}\`\n\n` +
+                    `1️⃣ Copia la dirección de arriba.\n` +
+                    `2️⃣ Abre tu Wallet y selecciona "Enviar".\n` +
+                    `3️⃣ Pega la dirección, el monto y **envía el comprobante** aquí.`;
 
     await ctx.replyWithMarkdown(mensaje, Markup.inlineKeyboard([
-        [Markup.button.url('🚀 PAGAR CON WALLET', 'https://t.me/wallet')]
+        [Markup.button.url('📱 ABRIR MI WALLET', 'https://t.me/wallet')]
     ]));
 });
 
-// Escuchar cuando el cliente mande la foto del comprobante
+// Detectar cuando el cliente envía el comprobante (Foto)
 bot.on('photo', async (ctx) => {
-    await ctx.reply("✅ Gracias. Tu pago está siendo verificado por el equipo.");
-    // Reenvía la foto a tu grupo de control
+    const caption = ctx.message.caption || "Sin descripción";
+    
+    await ctx.reply("⏳ **Recibido.** Estamos verificando tu pago. En breve recibirás confirmación.");
+    
+    // Reenviar al grupo de control para que tú lo veas
+    await bot.telegram.sendMessage(process.env.GRUPO_CONTROL_ID, "📸 **NUEVO COMPROBANTE RECIBIDO**");
     await ctx.forwardMessage(process.env.GRUPO_CONTROL_ID);
 });
 
-bot.launch({ dropPendingUpdates: true });
+bot.launch({ dropPendingUpdates: true }).then(() => {
+    console.log("🚀 Bot funcionando con Pago Directo a Wallet");
+});
