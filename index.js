@@ -4,7 +4,7 @@ const express = require('express');
 const app = express();
 app.use(express.json());
 
-app.get('/', (req, res) => res.send('Bot Pagocliente_bot (V8 - Notificaciones Fijadas) Activo 🚀'));
+app.get('/', (req, res) => res.send('Bot Pagocliente_bot (V9 - Notificaciones Corregidas) Activo 🚀'));
 app.listen(process.env.PORT || 3000);
 
 const bot = new Telegraf(process.env.BOT_TOKEN.trim());
@@ -12,7 +12,9 @@ const bot = new Telegraf(process.env.BOT_TOKEN.trim());
 // CONFIGURACIÓN DE TU NEGOCIO
 const MI_BILLETERA = "UQALq2ZN6CZo-V2L5RGA972GXIyTQrFPnxgajotHP2olu_t1";
 const NOMBRE_BOT = "Pagocliente_bot";
-const GRUPO_PAGOS = process.env.GRUPO_CONTROL_ID;
+
+// Forzamos a que el ID del grupo sea leído como un número entero (indispensable para el signo -)
+const GRUPO_PAGOS = parseInt(process.env.GRUPO_CONTROL_ID);
 
 // 1. MODO INLINE (Cuando la modelo cobra en cualquier chat privado)
 bot.on('inline_query', async (ctx) => {
@@ -24,15 +26,14 @@ bot.on('inline_query', async (ctx) => {
     if (!monto || isNaN(monto)) return;
 
     // --- NOTIFICACIÓN SEGURA AL GRUPO DE PAGOS ---
-    // Sacamos el nombre de forma segura para que no rompa el código si Telegram lo oculta
     const nombreModelo = modelo.toUpperCase();
     const avisoOrden = `🔔 **ÓRDEN GENERADA EN CHAT**\n👩‍🦰 Modelo: ${nombreModelo}\n💰 Monto: \`${monto}\` USDT\n📌 _Enviada al cliente en chat privado_`;
     
     try {
-        // Usamos la API directa de Telegram para asegurar el envío al grupo
+        // Envía el mensaje usando el ID numérico correcto
         await bot.telegram.sendMessage(GRUPO_PAGOS, avisoOrden);
     } catch (err) {
-        console.error("Error enviando alerta al grupo:", err);
+        console.error("Error enviando alerta al grupo en modo inline:", err);
     }
     // --------------------------------------------
 
@@ -61,7 +62,7 @@ bot.on('inline_query', async (ctx) => {
     return await ctx.answerInlineQuery(resultado);
 });
 
-// 2. COMANDO TRADICIONAL (Lo que probaste en el grupo)
+// 2. COMANDO TRADICIONAL
 bot.command('cobrar', async (ctx) => {
     const partes = ctx.message.text.split(/\s+/);
     const monto = partes[1];
@@ -74,7 +75,9 @@ bot.command('cobrar', async (ctx) => {
     const avisoOrdenCmd = `🔔 **ÓRDEN GENERADA (COMANDO)**\n👩‍🦰 Modelo: ${modelo.toUpperCase()}\n💰 Monto: \`${monto}\` USDT`;
     try {
         await bot.telegram.sendMessage(GRUPO_PAGOS, avisoOrdenCmd);
-    } catch (e) { console.error(e); }
+    } catch (e) { 
+        console.error("Error enviando alerta al grupo en comando:", e); 
+    }
 
     const texto = `💎 **ORDEN DE PAGO: ${modelo.toUpperCase()}** 💎\n\n` +
                   `💰 **Monto a pagar:** \`${monto}\` USDT\n` +
@@ -91,7 +94,7 @@ bot.command('cobrar', async (ctx) => {
     ]));
 });
 
-// 3. RECEPCIÓN DE COMPROBANTES (Cuando el cliente te manda la foto al chat privado del bot)
+// 3. RECEPCIÓN DE COMPROBANTES (Cuando el cliente envía la foto)
 bot.on('photo', async (ctx) => {
     const user = ctx.from.first_name || "Usuario";
     const username = ctx.from.username ? `@${ctx.from.username}` : "Sin @";
@@ -107,7 +110,7 @@ bot.on('photo', async (ctx) => {
         await bot.telegram.sendMessage(GRUPO_PAGOS, reporte);
         await ctx.forwardMessage(GRUPO_PAGOS);
     } catch (err) {
-        console.error("Error reenviando al grupo de control:", err);
+        console.error("Error reenviando el comprobante al grupo de control:", err);
     }
 });
 
