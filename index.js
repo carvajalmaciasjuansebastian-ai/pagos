@@ -21,7 +21,9 @@ bot.on('inline_query', async (ctx) => {
     const query = ctx.inlineQuery.query;
     const partes = query.split(' ');
     const monto = partes[0];
-    const modelo = partes[1] || "Modelo";
+    
+    // CORRECCIÓN: Si no viene un nombre en el texto, extrae automáticamente el primer nombre de la modelo desde su Telegram
+    const modelo = partes[1] || ctx.inlineQuery.from.first_name || "Modelo";
 
     if (!monto || isNaN(monto)) return;
 
