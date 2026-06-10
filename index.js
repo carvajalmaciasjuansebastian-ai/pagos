@@ -4,27 +4,28 @@ const express = require('express');
 const app = express();
 app.use(express.json());
 
-app.get('/', (req, res) => res.send('Bot Pagocliente_bot (V10 - Billetera Centralizada) Activo 🚀'));
+// Verificación de salud del contenedor en Render
+app.get('/', (req, res) => res.send('Bot Pagocliente_bot (V10 - Billetera Centralizada Permanente) Activo 🚀'));
 app.listen(process.env.PORT || 3000);
 
 const bot = new Telegraf(process.env.BOT_TOKEN.trim());
 
-// ==========================================
-// CONFIGURACIÓN CENTRAL DE TU BILLETERA
-// ==========================================
+// =========================================================================
+// CONFIGURACIÓN CENTRAL DE TU NEGOCIO (Todos los pagos van aquí)
+// =========================================================================
 const MI_BILLETERA = "UQALq2ZN6CZo-V2L5RGA972GXIyTQrFPnxgajotHP2olu_t1";
 const NOMBRE_BOT = "Pagocliente_bot";
 
-// ID del grupo para control interno
+// ID del grupo para control de operaciones e ingresos
 const GRUPO_PAGOS = parseInt(process.env.GRUPO_CONTROL_ID);
 
-// 1. MODO INLINE (Cuando la modelo cobra en cualquier chat privado)
+// 1. MODO INLINE (Cuando la modelo cobra escribiendo @Pagocliente_bot en chats privados)
 bot.on('inline_query', async (ctx) => {
     const query = ctx.inlineQuery.query;
     const partes = query.split(' ');
     const monto = partes[0];
     
-    // Extrae el nombre de la modelo o usa el de Telegram por defecto
+    // Identifica qué modelo genera la solicitud para los registros internos
     const modelo = partes[1] || ctx.inlineQuery.from.first_name || "Modelo";
 
     if (!monto || isNaN(monto)) return;
@@ -61,7 +62,7 @@ bot.on('inline_query', async (ctx) => {
             parse_mode: 'Markdown'
         },
         ...Markup.inlineKeyboard([
-            // CORRECCIÓN DE ENLACE: Asegura la redirección exacta del pago a tu billetera centralizada
+            // Enlace formateado según la API oficial de la Wallet de Telegram (Un solo guion bajo como separador de parámetros)
             [Markup.button.url(`🚀 PAGAR / PAY ${monto} USDT AHORA`, `https://t.me/wallet?startattach=external_pay_${MI_BILLETERA}_${monto}`)],
             [Markup.button.url('📸 ENVIAR COMPROBANTE / SEND RECEIPT', `https://t.me/${NOMBRE_BOT}`)]
         ])
@@ -70,7 +71,7 @@ bot.on('inline_query', async (ctx) => {
     return await ctx.answerInlineQuery(resultado);
 });
 
-// 2. COMANDO TRADICIONAL
+// 2. COMANDO TRADICIONAL (Uso directo en el chat del bot: /cobrar 30 Maria)
 bot.command('cobrar', async (ctx) => {
     const partes = ctx.message.text.split(/\s+/);
     const monto = partes[1];
@@ -101,13 +102,13 @@ bot.command('cobrar', async (ctx) => {
                   `🔥 **¡Prepárate para la diversión! / Get ready for fun!** 🔥`;
 
     await ctx.replyWithMarkdown(texto, Markup.inlineKeyboard([
-        // CORRECCIÓN DE ENLACE: Asegura la redirección exacta del pago a tu billetera centralizada
+        // Enlace formateado de forma idéntica para asegurar centralización del flujo de dinero
         [Markup.button.url(`🚀 PAGAR / PAY ${monto} USDT AHORA`, `https://t.me/wallet?startattach=external_pay_${MI_BILLETERA}_${monto}`)],
         [Markup.button.url('📸 ENVIAR COMPROBANTE / SEND RECEIPT', `https://t.me/${NOMBRE_BOT}`)]
     ]));
 });
 
-// 3. RECEPCIÓN DE COMPROBANTES (Cuando el cliente envía la foto)
+// 3. RECEPCIÓN DE COMPROBANTES (Captura el flujo de imágenes enviado por los compradores)
 bot.on('photo', async (ctx) => {
     const user = ctx.from.first_name || "Usuario";
     const username = ctx.from.username ? `@${ctx.from.username}` : "Sin @";
@@ -127,8 +128,14 @@ bot.on('photo', async (ctx) => {
     }
 });
 
+// 4. INICIALIZACIÓN Y CONFIGURACIÓN DE ARRANQUE DEL BOT
 bot.start((ctx) => {
     ctx.reply("👋 ¡Bienvenido! Envía la captura de tu pago aquí para habilitar tu servicio de inmediato.");
 });
 
+// Lanza el bot ignorando mensajes acumulados mientras estuvo apagado (evita spam de órdenes viejas al reiniciar)
 bot.launch({ dropPendingUpdates: true });
+
+// Cierre limpio de procesos en el contenedor de Render
+process.once('SIGINT', () => bot.stop('SIGINT'));
+process.once('SIGTERM', () => bot.stop('SIGTERM'));
