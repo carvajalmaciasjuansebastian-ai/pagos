@@ -10,7 +10,7 @@ app.listen(process.env.PORT || 3000);
 const bot = new Telegraf(process.env.BOT_TOKEN.trim());
 
 // CONFIGURACIÓN DE TU NEGOCIO
-const MI_BILLETERA = "UQALq2ZN6CZo-V2L5RGA972GXIyTQrFPnxgajotHP2olu_t1";
+const MI_BILLETERA = "UQC-nvjLo9iUO-6ym2ZslcnO3VBUFDXuh7foAbc3C6mIJzYA";
 const NOMBRE_BOT = "Pagocliente_bot";
 
 // Forzamos a que el ID del grupo sea leído como un número entero (indispensable para el signo -)
