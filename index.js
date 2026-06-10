@@ -4,22 +4,21 @@ const express = require('express');
 const app = express();
 app.use(express.json());
 
-// Verificación de salud del contenedor en Render
-app.get('/', (req, res) => res.send('Bot Pagocliente_bot (V10 - Estable) Activo 🚀'));
+app.get('/', (req, res) => res.send('Bot Pagocliente_bot (V10 - Producción Fija) Activo 🚀'));
 app.listen(process.env.PORT || 3000);
 
 const bot = new Telegraf(process.env.BOT_TOKEN.trim());
 
-// =========================================================================
-// CONFIGURACIÓN CENTRAL DE TU BILLETERA (Todos los pagos van aquí)
-// =========================================================================
+// ==========================================
+// CONFIGURACIÓN CENTRAL DE TU BILLETERA
+// ==========================================
 const MI_BILLETERA = "UQALq2ZN6CZo-V2L5RGA972GXIyTQrFPnxgajotHP2olu_t1";
 const NOMBRE_BOT = "Pagocliente_bot";
 
-// ID del grupo para control de operaciones e ingresos
+// ID del grupo para control de operaciones
 const GRUPO_PAGOS = parseInt(process.env.GRUPO_CONTROL_ID);
 
-// 1. MODO INLINE (Escribiendo @Pagocliente_bot [monto] [modelo] en chats privados)
+// 1. MODO INLINE
 bot.on('inline_query', async (ctx) => {
     const query = ctx.inlineQuery.query;
     const partes = query.split(' ');
@@ -41,7 +40,7 @@ bot.on('inline_query', async (ctx) => {
 
     const resultado = [{
         type: 'article',
-        id: `pago_${monto}_${modelo}_${Date.now()}`,
+        id: `pago_${monto}_${modelo.toLowerCase()}_${Date.now()}`,
         title: `💎 ORDEN DE PAGO / PAYMENT ORDER 💎`,
         description: `Enviar orden de ${monto} USDT para ${modelo}`,
         input_message_content: {
@@ -68,7 +67,7 @@ bot.on('inline_query', async (ctx) => {
     return await ctx.answerInlineQuery(resultado);
 });
 
-// 2. COMANDO TRADICIONAL (Uso en el chat directo del bot: /cobrar 30 Maria)
+// 2. COMANDO TRADICIONAL
 bot.command('cobrar', async (ctx) => {
     const partes = ctx.message.text.split(/\s+/);
     const monto = partes[1];
@@ -104,7 +103,7 @@ bot.command('cobrar', async (ctx) => {
     ]));
 });
 
-// 3. RECEPCIÓN DE COMPROBANTES (Reenvía las capturas de pantalla de los clientes)
+// 3. RECEPCIÓN DE COMPROBANTES
 bot.on('photo', async (ctx) => {
     const user = ctx.from.first_name || "Usuario";
     const username = ctx.from.username ? `@${ctx.from.username}` : "Sin @";
@@ -124,19 +123,14 @@ bot.on('photo', async (ctx) => {
     }
 });
 
-// 4. ARRANQUE DEL BOT LIMPIANDO CONFLICTOS 409
 bot.start((ctx) => {
     ctx.reply("👋 ¡Bienvenido! Envía la captura de tu pago aquí para habilitar tu servicio de inmediato.");
 });
 
-// Asegura limpiar conexiones colgadas en Telegram antes de encender el bot de nuevo
-bot.telegram.deleteWebhook()
-    .then(() => {
-        return bot.launch({ dropPendingUpdates: true });
-    })
-    .then(() => console.log('Bot Pagocliente_bot inicializado correctamente 🚀'))
-    .catch((err) => console.error('Error crítico al lanzar el bot:', err));
+// Inicialización directa (método estándar rápido)
+bot.launch({ dropPendingUpdates: true });
 
-// Manejo seguro del apagado
+console.log('Script cargado y listo para iniciar polling...');
+
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
