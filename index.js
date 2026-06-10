@@ -119,3 +119,7 @@ bot.start((ctx) => {
 });
 
 bot.launch({ dropPendingUpdates: true });
+
+// Cierre limpio de procesos para la estabilidad de Render
+process.once('SIGINT', () => bot.stop('SIGINT'));
+process.once('SIGTERM', () => bot.stop('SIGTERM'));
