@@ -4,43 +4,41 @@ const express = require('express');
 const app = express();
 app.use(express.json());
 
-app.get('/', (req, res) => res.send('Bot Pagocliente_bot (V10 - Producción Fija) Activo 🚀'));
+app.get('/', (req, res) => res.send('Bot Pagocliente_bot (V10 - Bilingüe Centralizado) Activo 🚀'));
 app.listen(process.env.PORT || 3000);
 
 const bot = new Telegraf(process.env.BOT_TOKEN.trim());
 
-// ==========================================
-// CONFIGURACIÓN CENTRAL DE TU BILLETERA
-// ==========================================
+// CONFIGURACIÓN DE TU NEGOCIO
 const MI_BILLETERA = "UQALq2ZN6CZo-V2L5RGA972GXIyTQrFPnxgajotHP2olu_t1";
 const NOMBRE_BOT = "Pagocliente_bot";
 
-// ID del grupo para control de operaciones
+// Forzamos a que el ID del grupo sea leído como un número entero (indispensable para el signo -)
 const GRUPO_PAGOS = parseInt(process.env.GRUPO_CONTROL_ID);
 
-// 1. MODO INLINE
+// 1. MODO INLINE (Cuando la modelo cobra en cualquier chat privado)
 bot.on('inline_query', async (ctx) => {
     const query = ctx.inlineQuery.query;
     const partes = query.split(' ');
     const monto = partes[0];
-    const modelo = partes[1] || ctx.inlineQuery.from.first_name || "Modelo";
+    const modelo = partes[1] || "Modelo";
 
     if (!monto || isNaN(monto)) return;
 
-    // --- NOTIFICACIÓN INTERNA AL GRUPO DE CONTROL ---
+    // --- NOTIFICACIÓN SEGURA AL GRUPO DE PAGOS ---
     const nombreModelo = modelo.toUpperCase();
     const avisoOrden = `🔔 **ÓRDEN GENERADA EN CHAT**\n👩‍🦰 Modelo: ${nombreModelo}\n💰 Monto: \`${monto}\` USDT\n📌 _Enviada al cliente en chat privado_`;
     
     try {
         await bot.telegram.sendMessage(GRUPO_PAGOS, avisoOrden);
     } catch (err) {
-        console.error("Error enviando alerta al grupo en modo inline:", err);
+        console.error("Error sending notification to control group in inline mode:", err);
     }
-    // ------------------------------------------------
+    // --------------------------------------------
 
     const resultado = [{
         type: 'article',
-        id: `pago_${monto}_${modelo.toLowerCase()}_${Date.now()}`,
+        id: `pago_${monto}_${modelo}_${Date.now()}`,
         title: `💎 ORDEN DE PAGO / PAYMENT ORDER 💎`,
         description: `Enviar orden de ${monto} USDT para ${modelo}`,
         input_message_content: {
@@ -59,7 +57,7 @@ bot.on('inline_query', async (ctx) => {
             parse_mode: 'Markdown'
         },
         ...Markup.inlineKeyboard([
-            [Markup.button.url(`🚀 PAGAR / PAY ${monto} USDT AHORA`, `https://t.me/wallet?startattach=external_pay_${MI_BILLETERA}_${monto}`)],
+            [Markup.button.url(`🚀 PAGAR / PAY ${monto} USDT AHORA`, `https://t.me/wallet?startattach=external_pay__${MI_BILLETERA}__${monto}`)],
             [Markup.button.url('📸 ENVIAR COMPROBANTE / SEND RECEIPT', `https://t.me/${NOMBRE_BOT}`)]
         ])
     }];
@@ -81,7 +79,7 @@ bot.command('cobrar', async (ctx) => {
     try {
         await bot.telegram.sendMessage(GRUPO_PAGOS, avisoOrdenCmd);
     } catch (e) { 
-        console.error("Error enviando alerta al grupo en comando:", e); 
+        console.error("Error sending notification to control group in command mode:", e); 
     }
 
     const texto = `💎 **ORDEN DE PAGO: ${modelo.toUpperCase()}** 💎\n\n` +
@@ -98,28 +96,28 @@ bot.command('cobrar', async (ctx) => {
                   `🔥 **¡Prepárate para la diversión! / Get ready for fun!** 🔥`;
 
     await ctx.replyWithMarkdown(texto, Markup.inlineKeyboard([
-        [Markup.button.url(`🚀 PAGAR / PAY ${monto} USDT AHORA`, `https://t.me/wallet?startattach=external_pay_${MI_BILLETERA}_${monto}`)],
+        [Markup.button.url(`🚀 PAGAR / PAY ${monto} USDT AHORA`, `https://t.me/wallet?startattach=external_pay__${MI_BILLETERA}__${monto}`)],
         [Markup.button.url('📸 ENVIAR COMPROBANTE / SEND RECEIPT', `https://t.me/${NOMBRE_BOT}`)]
     ]));
 });
 
-// 3. RECEPCIÓN DE COMPROBANTES
+// 3. RECEPCIÓN DE COMPROBANTES (Cuando el cliente envía la foto)
 bot.on('photo', async (ctx) => {
     const user = ctx.from.first_name || "Usuario";
     const username = ctx.from.username ? `@${ctx.from.username}` : "Sin @";
 
     await ctx.reply("⏳ **Comprobante recibido.** El administrador está verificando la transacción en la Wallet, espera un momento.");
 
-    const report = `📸 **NUEVO COMPROBANTE RECIBIDO**\n` +
-                   `👤 Cliente: ${user} (${username})\n` +
-                   `🆔 ID Telegram: \`${ctx.from.id}\`\n` +
-                   `⏳ Estado: Esperando revisión en Wallet`;
+    const reporte = `📸 **NUEVO COMPROBANTE RECIBIDO**\n` +
+                    `👤 Cliente: ${user} (${username})\n` +
+                    `🆔 ID Telegram: \`${ctx.from.id}\`\n` +
+                    `⏳ Estado: Esperando revisión en Wallet`;
     
     try {
-        await bot.telegram.sendMessage(GRUPO_PAGOS, report);
+        await bot.telegram.sendMessage(GRUPO_PAGOS, reporte);
         await ctx.forwardMessage(GRUPO_PAGOS);
     } catch (err) {
-        console.error("Error reenviando el comprobante al grupo de control:", err);
+        console.error("Error forwarding receipt to control group:", err);
     }
 });
 
@@ -127,10 +125,8 @@ bot.start((ctx) => {
     ctx.reply("👋 ¡Bienvenido! Envía la captura de tu pago aquí para habilitar tu servicio de inmediato.");
 });
 
-// Inicialización directa (método estándar rápido)
 bot.launch({ dropPendingUpdates: true });
 
-console.log('Script cargado y listo para iniciar polling...');
-
+// Cierre limpio de procesos
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
