@@ -1,36 +1,51 @@
 const { Telegraf, Markup } = require('telegraf');
 const express = require('express');
 
+// ==========================================
+// CONFIGURACIÓN DEL SERVIDOR WEB (EXPRESS)
+// ==========================================
 const app = express();
 app.use(express.json());
 
-app.get('/', (req, res) => res.send('Bot Pagocliente_bot (V9 - Notificaciones Corregidas) Activo 🚀'));
-app.listen(process.env.PORT || 3000);
+app.get('/', (req, res) => {
+    res.send('Bot Pagocliente_bot (V9 - Notificaciones Corregidas) Activo 🚀');
+});
 
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`Servidor Express corriendo en el puerto ${PORT}`);
+});
+
+// ==========================================
+// CONFIGURACIÓN DEL BOT Y VARIABLES
+// ==========================================
 const bot = new Telegraf(process.env.BOT_TOKEN.trim());
 
-// CONFIGURACIÓN DE TU NEGOCIO
 const MI_BILLETERA = "UQALq2ZN6CZo-V2L5RGA972GXIyTQrFPnxgajotHP2olu_t1";
 const NOMBRE_BOT = "Pagocliente_bot";
-
-// Forzamos a que el ID del grupo sea leído como un número entero (indispensable para el signo -)
 const GRUPO_PAGOS = parseInt(process.env.GRUPO_CONTROL_ID);
 
-// 1. MODO INLINE (Cuando la modelo cobra en cualquier chat privado)
+// ==========================================
+// 1. MODO INLINE (Cobros en chats privados)
+// ==========================================
 bot.on('inline_query', async (ctx) => {
     const query = ctx.inlineQuery.query;
     const partes = query.split(' ');
     const monto = partes[0];
-    const modelo = partes[1] || "Modelo";
+    
+    // Si la modelo no escribe su nombre, el bot toma automáticamente su Primer Nombre de Telegram
+    const modelo = partes[1] || ctx.from.first_name || "Modelo";
 
     if (!monto || isNaN(monto)) return;
 
     // --- NOTIFICACIÓN SEGURA AL GRUPO DE PAGOS ---
     const nombreModelo = modelo.toUpperCase();
-    const avisoOrden = `🔔 **ÓRDEN GENERADA EN CHAT**\n👩‍🦰 Modelo: ${nombreModelo}\n💰 Monto: \`${monto}\` USDT\n📌 _Enviada al cliente en chat privado_`;
+    const usernameModelo = ctx.from.username ? ` (@${ctx.from.username})` : "";
+    
+    // El reporte al grupo ahora incluye el nombre detectado y su @username de Telegram para asegurar el rastro
+    const avisoOrden = `🔔 **ÓRDEN GENERADA EN CHAT**\n👩‍🦰 Modelo: ${nombreModelo}${usernameModelo}\n💰 Monto: \`${monto}\` USDT\n📌 _Enviada al cliente en chat privado_`;
     
     try {
-        // Envía el mensaje usando el ID numérico correcto
         await bot.telegram.sendMessage(GRUPO_PAGOS, avisoOrden);
     } catch (err) {
         console.error("Error sending notification to control group in inline mode:", err);
@@ -43,7 +58,7 @@ bot.on('inline_query', async (ctx) => {
         title: `💎 ORDEN DE PAGO 💎`,
         description: `Enviar orden de ${monto} USDT para ${modelo}`,
         input_message_content: {
-            message_text: `💎 **ORDEN DE PAGO: ${modelo.toUpperCase()}** 💎\n\n` +
+            message_text: `💎 **ORDEN DE PAGO: ${nombreModelo}** 💎\n\n` +
                           `💰 **Monto a pagar:** \`${monto}\` USDT\n` +
                           `🏦 **Red:** TON Network\n\n` +
                           `🚀 **Instrucciones:**\n` +
@@ -62,24 +77,31 @@ bot.on('inline_query', async (ctx) => {
     return await ctx.answerInlineQuery(resultado);
 });
 
-// 2. COMANDO TRADICIONAL
+// ==========================================
+// 2. COMANDO TRADICIONAL (/cobrar)
+// ==========================================
 bot.command('cobrar', async (ctx) => {
     const partes = ctx.message.text.split(/\s+/);
     const monto = partes[1];
-    const modelo = partes[2] || "Servicio";
+    
+    // Si no se define el nombre en el comando, toma el nombre del Telegram de quien ejecuta
+    const modelo = partes[2] || ctx.from.first_name || "Servicio";
 
     if (!monto || isNaN(monto)) {
         return ctx.reply('❌ Uso: /cobrar 20 Maria');
     }
 
-    const avisoOrdenCmd = `🔔 **ÓRDEN GENERADA (COMANDO)**\n👩‍🦰 Modelo: ${modelo.toUpperCase()}\n💰 Monto: \`${monto}\` USDT`;
+    const nombreModelo = modelo.toUpperCase();
+    const usernameModelo = ctx.from.username ? ` (@${ctx.from.username})` : "";
+    const avisoOrdenCmd = `🔔 **ÓRDEN GENERADA (COMANDO)**\n👩‍🦰 Modelo: ${nombreModelo}${usernameModelo}\n💰 Monto: \`${monto}\` USDT`;
+    
     try {
         await bot.telegram.sendMessage(GRUPO_PAGOS, avisoOrdenCmd);
     } catch (e) { 
         console.error("Error sending notification to control group in command mode:", e); 
     }
 
-    const texto = `💎 **ORDEN DE PAGO: ${modelo.toUpperCase()}** 💎\n\n` +
+    const texto = `💎 **ORDEN DE PAGO: ${nombreModelo}** 💎\n\n` +
                   `💰 **Monto a pagar:** \`${monto}\` USDT\n` +
                   `🏦 **Red:** TON Network\n\n` +
                   `🚀 **Instrucciones:**\n` +
@@ -94,7 +116,9 @@ bot.command('cobrar', async (ctx) => {
     ]));
 });
 
-// 3. RECEPCIÓN DE COMPROBANTES (Cuando el cliente envía la foto)
+// ==========================================
+// 3. RECEPCIÓN Y REENVÍO DE COMPROBANTES
+// ==========================================
 bot.on('photo', async (ctx) => {
     const user = ctx.from.first_name || "Usuario";
     const username = ctx.from.username ? `@${ctx.from.username}` : "Sin @";
@@ -114,12 +138,17 @@ bot.on('photo', async (ctx) => {
     }
 });
 
+// ==========================================
+// 4. COMANDO DE INICIO (/start)
+// ==========================================
 bot.start((ctx) => {
     ctx.reply("👋 ¡Bienvenido! Envía la captura de tu pago aquí para habilitar tu servicio de inmediato.");
 });
 
+// ==========================================
+// LANZAMIENTO Y CONTROL DE PROCESOS
+// ==========================================
 bot.launch({ dropPendingUpdates: true });
 
-// Cierre limpio de procesos (Evita que el proceso quede colgado en Render tras reiniciar)
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
