@@ -4,7 +4,7 @@ const express = require('express');
 const app = express();
 app.use(express.json());
 
-app.get('/', (req, res) => res.send('Bot Pagocliente_bot (V10 - Bilingüe Centralizado) Activo 🚀'));
+app.get('/', (req, res) => res.send('Bot Pagocliente_bot (V9 - Notificaciones Corregidas) Activo 🚀'));
 app.listen(process.env.PORT || 3000);
 
 const bot = new Telegraf(process.env.BOT_TOKEN.trim());
@@ -30,6 +30,7 @@ bot.on('inline_query', async (ctx) => {
     const avisoOrden = `🔔 **ÓRDEN GENERADA EN CHAT**\n👩‍🦰 Modelo: ${nombreModelo}\n💰 Monto: \`${monto}\` USDT\n📌 _Enviada al cliente en chat privado_`;
     
     try {
+        // Envía el mensaje usando el ID numérico correcto
         await bot.telegram.sendMessage(GRUPO_PAGOS, avisoOrden);
     } catch (err) {
         console.error("Error sending notification to control group in inline mode:", err);
@@ -39,26 +40,22 @@ bot.on('inline_query', async (ctx) => {
     const resultado = [{
         type: 'article',
         id: `pago_${monto}_${modelo}_${Date.now()}`,
-        title: `💎 ORDEN DE PAGO / PAYMENT ORDER 💎`,
+        title: `💎 ORDEN DE PAGO 💎`,
         description: `Enviar orden de ${monto} USDT para ${modelo}`,
         input_message_content: {
             message_text: `💎 **ORDEN DE PAGO: ${modelo.toUpperCase()}** 💎\n\n` +
-                          `💰 **Monto a pagar / Amount:** \`${monto}\` USDT\n` +
-                          `🏦 **Red / Network:** TON Network\n\n` +
-                          `🇪🇸 **Instrucciones:**\n` +
+                          `💰 **Monto a pagar:** \`${monto}\` USDT\n` +
+                          `🏦 **Red:** TON Network\n\n` +
+                          `🚀 **Instrucciones:**\n` +
                           `1. Toca el botón **PAGAR AHORA**.\n` +
                           `2. Confirma el envío desde tu Wallet.\n` +
                           `3. Envía el capture aquí mismo.\n\n` +
-                          `🇺🇸 **Instructions:**\n` +
-                          `1. Tap the **PAY NOW** button.\n` +
-                          `2. Confirm the transaction in your Wallet.\n` +
-                          `3. Send the screenshot right here.\n\n` +
-                          `🔥 **¡Prepárate para la diversión! / Get ready for fun!** 🔥`,
+                          `🔥 **¡Prepárate para la diversión!** 🔥`,
             parse_mode: 'Markdown'
         },
         ...Markup.inlineKeyboard([
-            [Markup.button.url(`🚀 PAGAR / PAY ${monto} USDT AHORA`, `https://t.me/wallet?startattach=external_pay__${MI_BILLETERA}__${monto}`)],
-            [Markup.button.url('📸 ENVIAR COMPROBANTE / SEND RECEIPT', `https://t.me/${NOMBRE_BOT}`)]
+            [Markup.button.url(`🚀 PAGAR ${monto} USDT AHORA`, `https://t.me/wallet?startattach=external_pay__${MI_BILLETERA}__${monto}`)],
+            [Markup.button.url('📸 ENVIAR COMPROBANTE AQUÍ', `https://t.me/${NOMBRE_BOT}`)]
         ])
     }];
 
@@ -83,21 +80,17 @@ bot.command('cobrar', async (ctx) => {
     }
 
     const texto = `💎 **ORDEN DE PAGO: ${modelo.toUpperCase()}** 💎\n\n` +
-                  `💰 **Monto a pagar / Amount:** \`${monto}\` USDT\n` +
-                  `🏦 **Red / Network:** TON Network\n\n` +
-                  `🇪🇸 **Instrucciones:**\n` +
+                  `💰 **Monto a pagar:** \`${monto}\` USDT\n` +
+                  `🏦 **Red:** TON Network\n\n` +
+                  `🚀 **Instrucciones:**\n` +
                   `1. Toca el botón **PAGAR AHORA**.\n` +
                   `2. Confirma el envío desde tu Wallet.\n` +
                   `3. Envía el capture aquí mismo.\n\n` +
-                  `🇺🇸 **Instructions:**\n` +
-                  `1. Tap the **PAY NOW** button.\n` +
-                  `2. Confirm the transaction in your Wallet.\n` +
-                  `3. Send the screenshot right here.\n\n` +
-                  `🔥 **¡Prepárate para la diversión! / Get ready for fun!** 🔥`;
+                  `🔥 **¡Prepárate para la diversión!** 🔥`;
 
     await ctx.replyWithMarkdown(texto, Markup.inlineKeyboard([
-        [Markup.button.url(`🚀 PAGAR / PAY ${monto} USDT AHORA`, `https://t.me/wallet?startattach=external_pay__${MI_BILLETERA}__${monto}`)],
-        [Markup.button.url('📸 ENVIAR COMPROBANTE / SEND RECEIPT', `https://t.me/${NOMBRE_BOT}`)]
+        [Markup.button.url(`🚀 PAGAR ${monto} USDT AHORA`, `https://t.me/wallet?startattach=external_pay__${MI_BILLETERA}__${monto}`)],
+        [Markup.button.url('📸 ENVIAR COMPROBANTE AQUÍ', `https://t.me/${NOMBRE_BOT}`)]
     ]));
 });
 
@@ -127,6 +120,6 @@ bot.start((ctx) => {
 
 bot.launch({ dropPendingUpdates: true });
 
-// Cierre limpio de procesos
+// Cierre limpio de procesos (Evita que el proceso quede colgado en Render tras reiniciar)
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
