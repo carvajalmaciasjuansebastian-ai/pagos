@@ -1,22 +1,33 @@
 const { Telegraf, Markup } = require('telegraf');
 const express = require('express');
 
+// ==========================================
+// CONFIGURACIÓN DEL SERVIDOR WEB (EXPRESS)
+// ==========================================
 const app = express();
 app.use(express.json());
 
-app.get('/', (req, res) => res.send('Bot Pagocliente_bot (V9 - Notificaciones Corregidas) Activo 🚀'));
-app.listen(process.env.PORT || 3000);
+app.get('/', (req, res) => {
+    res.send('Bot Pagocliente_bot (V9 - Notificaciones Corregidas) Activo 🚀');
+});
 
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`Servidor Express corriendo en el puerto ${PORT}`);
+});
+
+// ==========================================
+// CONFIGURACIÓN DEL BOT Y VARIABLES
+// ==========================================
 const bot = new Telegraf(process.env.BOT_TOKEN.trim());
 
-// CONFIGURACIÓN DE TU NEGOCIO
-const MI_BILLETERA = "UQC-nvjLo9iUO-6ym2ZslcnO3VBUFDXuh7foAbc3C6mIJzYA";
+const MI_BILLETERA = "UQALq2ZN6CZo-V2L5RGA972GXIyTQrFPnxgajotHP2olu_t1";
 const NOMBRE_BOT = "Pagocliente_bot";
-
-// Forzamos a que el ID del grupo sea leído como un número entero (indispensable para el signo -)
 const GRUPO_PAGOS = parseInt(process.env.GRUPO_CONTROL_ID);
 
-// 1. MODO INLINE (Cuando la modelo cobra en cualquier chat privado)
+// ==========================================
+// 1. MODO INLINE (Cobros en chats privados)
+// ==========================================
 bot.on('inline_query', async (ctx) => {
     const query = ctx.inlineQuery.query;
     const partes = query.split(' ');
@@ -30,7 +41,6 @@ bot.on('inline_query', async (ctx) => {
     const avisoOrden = `🔔 **ÓRDEN GENERADA EN CHAT**\n👩‍🦰 Modelo: ${nombreModelo}\n💰 Monto: \`${monto}\` USDT\n📌 _Enviada al cliente en chat privado_`;
     
     try {
-        // Envía el mensaje usando el ID numérico correcto
         await bot.telegram.sendMessage(GRUPO_PAGOS, avisoOrden);
     } catch (err) {
         console.error("Error enviando alerta al grupo en modo inline:", err);
@@ -62,7 +72,9 @@ bot.on('inline_query', async (ctx) => {
     return await ctx.answerInlineQuery(resultado);
 });
 
-// 2. COMANDO TRADICIONAL
+// ==========================================
+// 2. COMANDO TRADICIONAL (/cobrar)
+// ==========================================
 bot.command('cobrar', async (ctx) => {
     const partes = ctx.message.text.split(/\s+/);
     const monto = partes[1];
@@ -73,6 +85,7 @@ bot.command('cobrar', async (ctx) => {
     }
 
     const avisoOrdenCmd = `🔔 **ÓRDEN GENERADA (COMANDO)**\n👩‍🦰 Modelo: ${modelo.toUpperCase()}\n💰 Monto: \`${monto}\` USDT`;
+    
     try {
         await bot.telegram.sendMessage(GRUPO_PAGOS, avisoOrdenCmd);
     } catch (e) { 
@@ -94,7 +107,9 @@ bot.command('cobrar', async (ctx) => {
     ]));
 });
 
-// 3. RECEPCIÓN DE COMPROBANTES (Cuando el cliente envía la foto)
+// ==========================================
+// 3. RECEPCIÓN Y REENVÍO DE COMPROBANTES
+// ==========================================
 bot.on('photo', async (ctx) => {
     const user = ctx.from.first_name || "Usuario";
     const username = ctx.from.username ? `@${ctx.from.username}` : "Sin @";
@@ -114,12 +129,20 @@ bot.on('photo', async (ctx) => {
     }
 });
 
+// ==========================================
+// 4. COMANDO DE INICIO (/start)
+// ==========================================
 bot.start((ctx) => {
     ctx.reply("👋 ¡Bienvenido! Envía la captura de tu pago aquí para habilitar tu servicio de inmediato.");
 });
 
-bot.launch({ dropPendingUpdates: true });
+// ==========================================
+// LANZAMIENTO Y CONTROL DE PROCESOS
+// ==========================================
+bot.launch({ dropPendingUpdates: true })
+    .then(() => console.log('Bot iniciado exitosamente.'))
+    .catch((err) => console.error('Error al iniciar el bot:', err));
 
-// Cierre limpio de procesos para la estabilidad de Render
+// Manejo seguro de apagado para evitar fallos de polling en Render
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
