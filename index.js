@@ -1,33 +1,22 @@
 const { Telegraf, Markup } = require('telegraf');
 const express = require('express');
 
-// ==========================================
-// CONFIGURACIÓN DEL SERVIDOR WEB (EXPRESS)
-// ==========================================
 const app = express();
 app.use(express.json());
 
-app.get('/', (req, res) => {
-    res.send('Bot Pagocliente_bot (V9 - Notificaciones Corregidas) Activo 🚀');
-});
+app.get('/', (req, res) => res.send('Bot Pagocliente_bot (V10 - Bilingüe Centralizado) Activo 🚀'));
+app.listen(process.env.PORT || 3000);
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Servidor Express corriendo en el puerto ${PORT}`);
-});
-
-// ==========================================
-// CONFIGURACIÓN DEL BOT Y VARIABLES
-// ==========================================
 const bot = new Telegraf(process.env.BOT_TOKEN.trim());
 
+// CONFIGURACIÓN DE TU NEGOCIO
 const MI_BILLETERA = "UQALq2ZN6CZo-V2L5RGA972GXIyTQrFPnxgajotHP2olu_t1";
 const NOMBRE_BOT = "Pagocliente_bot";
+
+// Forzamos a que el ID del grupo sea leído como un número entero (indispensable para el signo -)
 const GRUPO_PAGOS = parseInt(process.env.GRUPO_CONTROL_ID);
 
-// ==========================================
-// 1. MODO INLINE (Cobros en chats privados)
-// ==========================================
+// 1. MODO INLINE (Cuando la modelo cobra en cualquier chat privado)
 bot.on('inline_query', async (ctx) => {
     const query = ctx.inlineQuery.query;
     const partes = query.split(' ');
@@ -43,38 +32,40 @@ bot.on('inline_query', async (ctx) => {
     try {
         await bot.telegram.sendMessage(GRUPO_PAGOS, avisoOrden);
     } catch (err) {
-        console.error("Error enviando alerta al grupo en modo inline:", err);
+        console.error("Error sending notification to control group in inline mode:", err);
     }
     // --------------------------------------------
 
     const resultado = [{
         type: 'article',
         id: `pago_${monto}_${modelo}_${Date.now()}`,
-        title: `💎 ORDEN DE PAGO 💎`,
+        title: `💎 ORDEN DE PAGO / PAYMENT ORDER 💎`,
         description: `Enviar orden de ${monto} USDT para ${modelo}`,
         input_message_content: {
             message_text: `💎 **ORDEN DE PAGO: ${modelo.toUpperCase()}** 💎\n\n` +
-                          `💰 **Monto a pagar:** \`${monto}\` USDT\n` +
-                          `🏦 **Red:** TON Network\n\n` +
-                          `🚀 **Instrucciones:**\n` +
+                          `💰 **Monto a pagar / Amount:** \`${monto}\` USDT\n` +
+                          `🏦 **Red / Network:** TON Network\n\n` +
+                          `🇪🇸 **Instrucciones:**\n` +
                           `1. Toca el botón **PAGAR AHORA**.\n` +
                           `2. Confirma el envío desde tu Wallet.\n` +
                           `3. Envía el capture aquí mismo.\n\n` +
-                          `🔥 **¡Prepárate para la diversión!** 🔥`,
+                          `🇺🇸 **Instructions:**\n` +
+                          `1. Tap the **PAY NOW** button.\n` +
+                          `2. Confirm the transaction in your Wallet.\n` +
+                          `3. Send the screenshot right here.\n\n` +
+                          `🔥 **¡Prepárate para la diversión! / Get ready for fun!** 🔥`,
             parse_mode: 'Markdown'
         },
         ...Markup.inlineKeyboard([
-            [Markup.button.url(`🚀 PAGAR ${monto} USDT AHORA`, `https://t.me/wallet?startattach=external_pay__${MI_BILLETERA}__${monto}`)],
-            [Markup.button.url('📸 ENVIAR COMPROBANTE AQUÍ', `https://t.me/${NOMBRE_BOT}`)]
+            [Markup.button.url(`🚀 PAGAR / PAY ${monto} USDT AHORA`, `https://t.me/wallet?startattach=external_pay__${MI_BILLETERA}__${monto}`)],
+            [Markup.button.url('📸 ENVIAR COMPROBANTE / SEND RECEIPT', `https://t.me/${NOMBRE_BOT}`)]
         ])
     }];
 
     return await ctx.answerInlineQuery(resultado);
 });
 
-// ==========================================
-// 2. COMANDO TRADICIONAL (/cobrar)
-// ==========================================
+// 2. COMANDO TRADICIONAL
 bot.command('cobrar', async (ctx) => {
     const partes = ctx.message.text.split(/\s+/);
     const monto = partes[1];
@@ -85,31 +76,32 @@ bot.command('cobrar', async (ctx) => {
     }
 
     const avisoOrdenCmd = `🔔 **ÓRDEN GENERADA (COMANDO)**\n👩‍🦰 Modelo: ${modelo.toUpperCase()}\n💰 Monto: \`${monto}\` USDT`;
-    
     try {
         await bot.telegram.sendMessage(GRUPO_PAGOS, avisoOrdenCmd);
     } catch (e) { 
-        console.error("Error enviando alerta al grupo en comando:", e); 
+        console.error("Error sending notification to control group in command mode:", e); 
     }
 
     const texto = `💎 **ORDEN DE PAGO: ${modelo.toUpperCase()}** 💎\n\n` +
-                  `💰 **Monto a pagar:** \`${monto}\` USDT\n` +
-                  `🏦 **Red:** TON Network\n\n` +
-                  `🚀 **Instrucciones:**\n` +
+                  `💰 **Monto a pagar / Amount:** \`${monto}\` USDT\n` +
+                  `🏦 **Red / Network:** TON Network\n\n` +
+                  `🇪🇸 **Instrucciones:**\n` +
                   `1. Toca el botón **PAGAR AHORA**.\n` +
                   `2. Confirma el envío desde tu Wallet.\n` +
                   `3. Envía el capture aquí mismo.\n\n` +
-                  `🔥 **¡Prepárate para la diversión!** 🔥`;
+                  `🇺🇸 **Instructions:**\n` +
+                  `1. Tap the **PAY NOW** button.\n` +
+                  `2. Confirm the transaction in your Wallet.\n` +
+                  `3. Send the screenshot right here.\n\n` +
+                  `🔥 **¡Prepárate para la diversión! / Get ready for fun!** 🔥`;
 
     await ctx.replyWithMarkdown(texto, Markup.inlineKeyboard([
-        [Markup.button.url(`🚀 PAGAR ${monto} USDT AHORA`, `https://t.me/wallet?startattach=external_pay__${MI_BILLETERA}__${monto}`)],
-        [Markup.button.url('📸 ENVIAR COMPROBANTE AQUÍ', `https://t.me/${NOMBRE_BOT}`)]
+        [Markup.button.url(`🚀 PAGAR / PAY ${monto} USDT AHORA`, `https://t.me/wallet?startattach=external_pay__${MI_BILLETERA}__${monto}`)],
+        [Markup.button.url('📸 ENVIAR COMPROBANTE / SEND RECEIPT', `https://t.me/${NOMBRE_BOT}`)]
     ]));
 });
 
-// ==========================================
-// 3. RECEPCIÓN Y REENVÍO DE COMPROBANTES
-// ==========================================
+// 3. RECEPCIÓN DE COMPROBANTES (Cuando el cliente envía la foto)
 bot.on('photo', async (ctx) => {
     const user = ctx.from.first_name || "Usuario";
     const username = ctx.from.username ? `@${ctx.from.username}` : "Sin @";
@@ -125,24 +117,16 @@ bot.on('photo', async (ctx) => {
         await bot.telegram.sendMessage(GRUPO_PAGOS, reporte);
         await ctx.forwardMessage(GRUPO_PAGOS);
     } catch (err) {
-        console.error("Error reenviando el comprobante al grupo de control:", err);
+        console.error("Error forwarding receipt to control group:", err);
     }
 });
 
-// ==========================================
-// 4. COMANDO DE INICIO (/start)
-// ==========================================
 bot.start((ctx) => {
     ctx.reply("👋 ¡Bienvenido! Envía la captura de tu pago aquí para habilitar tu servicio de inmediato.");
 });
 
-// ==========================================
-// LANZAMIENTO Y CONTROL DE PROCESOS
-// ==========================================
-bot.launch({ dropPendingUpdates: true })
-    .then(() => console.log('Bot iniciado exitosamente.'))
-    .catch((err) => console.error('Error al iniciar el bot:', err));
+bot.launch({ dropPendingUpdates: true });
 
-// Manejo seguro de apagado para evitar fallos de polling en Render
+// Cierre limpio de procesos
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
