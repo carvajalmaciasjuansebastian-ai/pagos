@@ -5,7 +5,7 @@ const app = express();
 app.use(express.json());
 
 // Verificación de salud del contenedor en Render
-app.get('/', (req, res) => res.send('Bot Pagocliente_bot (V11 - Sistema Dual) Activo 🚀'));
+app.get('/', (req, res) => res.send('Bot Pagocliente_bot (V12 - Con Guía de Usuario) Activo 🚀'));
 app.listen(process.env.PORT || 3000);
 
 const bot = new Telegraf(process.env.BOT_TOKEN.trim());
@@ -29,8 +29,6 @@ bot.on('inline_query', async (ctx) => {
     if (!monto || isNaN(monto)) return;
 
     const nombreModelo = modelo.toUpperCase();
-    
-    // Equivalencia para Stars: 1 USDT suele calcularse comercialmente en unas 50 estrellas
     const montoStars = Math.round(monto * 50);
 
     // --- NOTIFICACIÓN INTERNA AL GRUPO DE CONTROL ---
@@ -52,17 +50,17 @@ bot.on('inline_query', async (ctx) => {
             message_text: `💎 **ORDEN DE PAGO: ${nombreModelo}** 💎\n\n` +
                           `💰 **Monto a pagar / Amount:** \`${monto}\` USDT o \`${montoStars}\` Estrellas\n` +
                           `🏦 **Red / Network:** TON Network / Telegram Stars\n\n` +
-                          `🇪🇸 **Instrucciones:**\n` +
-                          `Selecciona tu método de pago preferido abajo. Puedes pagar directamente con Crypto (Wallet/Tonkeeper) o usar tu tarjeta mediante Google Pay / Apple Pay (Estrellas).\n\n` +
-                          `🇺🇸 **Instructions:**\n` +
-                          `Select your preferred payment method below. You can pay directly with Crypto or use your card via Google Pay / Apple Pay (Stars).\n\n` +
+                          `🇪🇸 **¿Cómo pagar?**\n` +
+                          `• **Opción CRYPTO (USDT):** Toca el primer botón, paga desde tu Wallet/Tonkeeper y envía la captura aquí mismo.\n` +
+                          `• **Opción TARJETA (Google/Apple Pay):** Toca el segundo botón. _(Nota: Se abrirá una ventana privada con nuestro bot seguro para procesar tu tarjeta. Al finalizar, podrás regresar a este chat con 1 solo clic)._\n\n` +
+                          `🇺🇸 **How to pay?**\n` +
+                          `• **CRYPTO Option (USDT):** Tap the first button, pay via Wallet/Tonkeeper, and send the screenshot right here.\n` +
+                          `• **CARD Option (Google/Apple Pay):** Tap the second button. _(Note: A secure private window with our bot will open to process your card. Afterwards, you can return to this chat with just 1 click)._\n\n` +
                           `🔥 **¡Prepárate para la diversión! / Get ready for fun!** 🔥`,
             parse_mode: 'Markdown'
         },
         ...Markup.inlineKeyboard([
-            // OPCIÓN 1: Cobro directo en USDT por la red TON
             [Markup.button.url(`🚀 CRYPTO: PAGAR ${monto} USDT (TON)`, `https://t.me/wallet?startattach=external_pay_${MI_BILLETERA}_${monto}`)],
-            // OPCIÓN 2: Redirección segura para pago nativo con Tarjeta (Google Pay / Apple Pay)
             [Markup.button.url(`⭐ TARJETA: GOOGLE PAY / APPLE PAY`, `https://t.me/${NOMBRE_BOT}?start=stars_${montoStars}_${modelo}`)]
         ])
     }];
@@ -74,7 +72,6 @@ bot.on('inline_query', async (ctx) => {
 bot.start(async (ctx) => {
     const startPayload = ctx.startPayload;
     
-    // Si viene de la orden inline para pagar con Tarjeta/Stars ingresa aquí
     if (startPayload && startPayload.startsWith('stars_')) {
         const partes = startPayload.split('_');
         const stars = parseInt(partes[1]);
@@ -82,12 +79,19 @@ bot.start(async (ctx) => {
 
         if (!isNaN(stars)) {
             try {
+                // Mensaje de guía justo antes de lanzarle la factura para que entienda dónde está parado
+                await ctx.reply(
+                    `👋 **¡Bienvenido a la pasarela segura!**\n\n` +
+                    `Estás aquí para completar el pago de **${modelo.toUpperCase()}** de forma totalmente protegida.\n\n` +
+                    `👇 Presiona el botón **PAGAR** de la factura de abajo para abonar con tu tarjeta (Apple Pay / Google Pay / Saldo de Estrellas).`
+                );
+
                 return await ctx.replyWithInvoice({
-                    title: `⭐ PAGO CON TARJETA / STARS: ${modelo.toUpperCase()}`,
-                    description: `Procesado de forma segura mediante Apple Pay / Google Pay.`,
+                    title: `⭐ PAGO CON TARJETA: ${modelo.toUpperCase()}`,
+                    description: `Acceso Premium seguro para los servicios de ${modelo}.`,
                     payload: `stars_invoice_${modelo}_${Date.now()}`,
-                    provider_token: "", // OBLIGATORIO DEJAR VACÍO PARA TELEGRAM STARS
-                    currency: "XTR",     // MONEDA OFICIAL PARA ESTRELLAS NATIIVAS
+                    provider_token: "", 
+                    currency: "XTR",     
                     prices: [{ label: `Acceso Premium ${modelo}`, amount: stars }],
                     start_parameter: `pay_${stars}_${modelo}`,
                     reply_markup: Markup.inlineKeyboard([
@@ -101,7 +105,6 @@ bot.start(async (ctx) => {
         }
     }
 
-    // Mensaje estándar de bienvenida si no trae payload de pago
     ctx.reply("👋 ¡Bienvenido! Envía la captura de tu pago aquí para habilitar tu servicio de inmediato.\n\n👋 Welcome! Send your payment screenshot here to activate your service immediately.");
 });
 
@@ -129,9 +132,9 @@ bot.command('cobrar', async (ctx) => {
                   `💰 **Monto a pagar / Amount:** \`${monto}\` USDT o \`${montoStars}\` Estrellas\n` +
                   `🏦 **Red / Network:** TON Network / Telegram Stars\n\n` +
                   `🇪🇸 **Instrucciones:**\n` +
-                  `Selecciona tu método de pago preferido abajo. Puedes pagar directamente con Crypto (Wallet/Tonkeeper) o usar tu tarjeta mediante Google Pay / Apple Pay (Estrellas).\n\n` +
+                  `Selecciona tu método de pago preferido abajo. Puedes pagar directamente con Crypto o usar tu tarjeta mediante Google Pay / Apple Pay.\n\n` +
                   `🇺🇸 **Instructions:**\n` +
-                  `Select your preferred payment method below. You can pay directly with Crypto or use your card via Google Pay / Apple Pay (Stars).\n\n` +
+                  `Select your preferred payment method below. You can pay directly with Crypto or use your card via Google Pay / Apple Pay.\n\n` +
                   `🔥 **¡Prepárate para la diversión! / Get ready for fun!** 🔥`;
 
     await ctx.replyWithMarkdown(texto, Markup.inlineKeyboard([
@@ -147,12 +150,20 @@ bot.on('successful_payment', async (ctx) => {
     const invoicePayload = paymentInfo.invoice_payload;
     
     const partesPayload = invoicePayload.split('_');
-    const modeloIdentificada = partesPayload[2] ? partesPayload[2].toUpperCase() : "SISTEMA";
+    const nombreModeloClave = partesPayload[2] ? partesPayload[2] : "Modelo";
+    const modeloIdentificada = nombreModeloClave.toUpperCase();
 
     const clienteName = ctx.from.first_name || "Usuario";
     const clienteUser = ctx.from.username ? `@${ctx.from.username}` : "Sin @";
 
-    await ctx.reply("✅ **¡Pago completado con éxito!** Tus servicios han sido habilitados de manera inmediata.");
+    // Confirmación y botón de retorno claro
+    await ctx.reply(
+        "✅ **¡Perfecto! Tu pago con tarjeta ha sido verificado con éxito.** Tus servicios ya están activos.\n\n" +
+        "↩️ Toca el botón de aquí abajo para regresar de inmediato a tu conversación y continuar disfrutando.",
+        Markup.inlineKeyboard([
+            [Markup.button.switchToChat(`↩️ REGRESAR AL CHAT CON ${modeloIdentificada}`, ` ${totalStars / 50} ${nombreModeloClave.toLowerCase()}`)]
+        ])
+    );
 
     // Reporte automatizado de saldo centralizado al grupo
     const reportePago = `💸 **⭐ ¡INGRESO POR TARJETA CONFIRMADO! ⭐** 💸\n` +
@@ -194,7 +205,7 @@ bot.telegram.deleteWebhook()
     .then(() => {
         return bot.launch({ dropPendingUpdates: true });
     })
-    .then(() => console.log('Bot Pagocliente_bot inicializado correctamente con Sistema Dual 🚀'))
+    .then(() => console.log('Bot Pagocliente_bot inicializado correctamente con Guías de Usuario 🚀'))
     .catch((err) => console.error('Error crítico al lanzar el bot:', err));
 
 // Manejo seguro del apagado
