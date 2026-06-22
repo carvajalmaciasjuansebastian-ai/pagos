@@ -14,7 +14,7 @@ const bot = new Telegraf(process.env.BOT_TOKEN.trim());
 // CONFIGURACIÓN CENTRAL DE TUS DATOS DE PAGO
 // =========================================================================
 const MI_BILLETERA = "UQALq2ZN6CZo-V2L5RGA972GXIyTQrFPnxgajotHP2olu_t1";
-const CORREO_ZELLE = "tu-correo-aqui@zelle.com"; // ⬅️ CAMBIA ESTE CORREO POR EL TUYO REAL
+const CORREO_ZELLE = "jcompany444@gmail.com"; // ⬅️ Tu correo de Zelle actualizado
 const NOMBRE_BOT = "Pagocliente_bot";
 
 // ID del grupo para control de operaciones e ingresos
@@ -141,4 +141,3 @@ bot.telegram.deleteWebhook()
 // Manejo seguro del apagado
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
-
