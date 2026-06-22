@@ -11,9 +11,10 @@ app.listen(process.env.PORT || 3000);
 const bot = new Telegraf(process.env.BOT_TOKEN.trim());
 
 // =========================================================================
-// CONFIGURACIÓN CENTRAL DE TU BILLETERA (Todos los pagos van aquí)
+// CONFIGURACIÓN CENTRAL DE TUS DATOS DE PAGO
 // =========================================================================
 const MI_BILLETERA = "UQALq2ZN6CZo-V2L5RGA972GXIyTQrFPnxgajotHP2olu_t1";
+const CORREO_ZELLE = "tu-correo-aqui@zelle.com"; // ⬅️ CAMBIA ESTE CORREO POR EL TUYO REAL
 const NOMBRE_BOT = "Pagocliente_bot";
 
 // ID del grupo para control de operaciones e ingresos
@@ -30,7 +31,7 @@ bot.on('inline_query', async (ctx) => {
 
     // --- NOTIFICACIÓN INTERNA AL GRUPO DE CONTROL ---
     const nombreModelo = modelo.toUpperCase();
-    const avisoOrden = `🔔 **ÓRDEN GENERADA EN CHAT**\n👩‍🦰 Modelo: ${nombreModelo}\n💰 Monto: \`${monto}\` USDT\n📌 _Enviada al cliente en chat privado_`;
+    const avisoOrden = `🔔 **ÓRDEN GENERADA EN CHAT**\n👩‍🦰 Modelo: ${nombreModelo}\n💰 Monto: \`${monto}\` USD/USDT\n📌 _Enviada al cliente en chat privado_`;
     
     try {
         await bot.telegram.sendMessage(GRUPO_PAGOS, avisoOrden);
@@ -43,24 +44,24 @@ bot.on('inline_query', async (ctx) => {
         type: 'article',
         id: `pago_${monto}_${modelo}_${Date.now()}`,
         title: `💎 ORDEN DE PAGO / PAYMENT ORDER 💎`,
-        description: `Enviar orden de ${monto} USDT para ${modelo}`,
+        description: `Enviar orden de ${monto} USD para ${modelo}`,
         input_message_content: {
             message_text: `💎 **ORDEN DE PAGO: ${modelo.toUpperCase()}** 💎\n\n` +
-                          `💰 **Monto a pagar / Amount:** \`${monto}\` USDT\n` +
-                          `🏦 **Red / Network:** TON Network\n\n` +
+                          `💰 **Monto a pagar / Amount:** \`${monto}\` USD / USDT\n\n` +
                           `🇪🇸 **Instrucciones:**\n` +
-                          `1. Toca el botón **PAGAR AHORA**.\n` +
-                          `2. Confirma el envío desde tu Wallet.\n` +
-                          `3. Envía el capture aquí mismo.\n\n` +
+                          `• Si usas **USDT (TON)**, toca el botón de Wallet.\n` +
+                          `• Si usas **Zelle**, envía al correo: \`${CORREO_ZELLE}\`\n` +
+                          `• Al finalizar, envía el capture aquí mismo.\n\n` +
                           `🇺🇸 **Instructions:**\n` +
-                          `1. Tap the **PAY NOW** button.\n` +
-                          `2. Confirm the transaction in your Wallet.\n` +
-                          `3. Send the screenshot right here.\n\n` +
+                          `• For **USDT (TON)**, tap the Wallet button.\n` +
+                          `• For **Zelle**, send to: \`${CORREO_ZELLE}\`\n` +
+                          `• When finished, send the screenshot right here.\n\n` +
                           `🔥 **¡Prepárate para la diversión! / Get ready for fun!** 🔥`,
             parse_mode: 'Markdown'
         },
         ...Markup.inlineKeyboard([
-            [Markup.button.url(`🚀 PAGAR / PAY ${monto} USDT AHORA`, `https://t.me/wallet?startattach=external_pay_${MI_BILLETERA}_${monto}`)],
+            [Markup.button.url(`🚀 PAGAR ${monto} USDT (Wallet Telegram)`, `https://t.me/wallet?startattach=external_pay_${MI_BILLETERA}_${monto}`)],
+            [Markup.button.url(`🏦 PAGAR ${monto} USD (Zelle)`, `https://t.me/${NOMBRE_BOT}?start=zelle`)],
             [Markup.button.url('📸 ENVIAR COMPROBANTE / SEND RECEIPT', `https://t.me/${NOMBRE_BOT}`)]
         ])
     }];
@@ -78,7 +79,7 @@ bot.command('cobrar', async (ctx) => {
         return ctx.reply('❌ Uso: /cobrar 20 Maria');
     }
 
-    const avisoOrdenCmd = `🔔 **ÓRDEN GENERADA (COMANDO)**\n👩‍🦰 Modelo: ${modelo.toUpperCase()}\n💰 Monto: \`${monto}\` USDT`;
+    const avisoOrdenCmd = `🔔 **ÓRDEN GENERADA (COMANDO)**\n👩‍🦰 Modelo: ${modelo.toUpperCase()}\n💰 Monto: \`${monto}\` USD/USDT`;
     try {
         await bot.telegram.sendMessage(GRUPO_PAGOS, avisoOrdenCmd);
     } catch (e) { 
@@ -86,20 +87,20 @@ bot.command('cobrar', async (ctx) => {
     }
 
     const texto = `💎 **ORDEN DE PAGO: ${modelo.toUpperCase()}** 💎\n\n` +
-                  `💰 **Monto a pagar / Amount:** \`${monto}\` USDT\n` +
-                  `🏦 **Red / Network:** TON Network\n\n` +
+                  `💰 **Monto a pagar / Amount:** \`${monto}\` USD / USDT\n\n` +
                   `🇪🇸 **Instrucciones:**\n` +
-                  `1. Toca el botón **PAGAR AHORA**.\n` +
-                  `2. Confirma el envío desde tu Wallet.\n` +
-                  `3. Envía el capture aquí mismo.\n\n` +
+                  `• Si usas **USDT (TON)**, toca el botón de Wallet.\n` +
+                  `• Si usas **Zelle**, envía al correo: \`${CORREO_ZELLE}\`\n` +
+                  `• Al finalizar, envía el capture aquí mismo.\n\n` +
                   `🇺🇸 **Instructions:**\n` +
-                  `1. Tap the **PAY NOW** button.\n` +
-                  `2. Confirm the transaction in your Wallet.\n` +
-                  `3. Send the screenshot right here.\n\n` +
+                  `• For **USDT (TON)**, tap the Wallet button.\n` +
+                  `• For **Zelle**, send to: \`${CORREO_ZELLE}\`\n` +
+                  `• When finished, send the screenshot right here.\n\n` +
                   `🔥 **¡Prepárate para la diversión! / Get ready for fun!** 🔥`;
 
     await ctx.replyWithMarkdown(texto, Markup.inlineKeyboard([
-        [Markup.button.url(`🚀 PAGAR / PAY ${monto} USDT AHORA`, `https://t.me/wallet?startattach=external_pay_${MI_BILLETERA}_${monto}`)],
+        [Markup.button.url(`🚀 PAGAR ${monto} USDT (Wallet Telegram)`, `https://t.me/wallet?startattach=external_pay_${MI_BILLETERA}_${monto}`)],
+        [Markup.button.url(`🏦 PAGAR ${monto} USD (Zelle)`, `https://t.me/${NOMBRE_BOT}?start=zelle`)],
         [Markup.button.url('📸 ENVIAR COMPROBANTE / SEND RECEIPT', `https://t.me/${NOMBRE_BOT}`)]
     ]));
 });
@@ -109,12 +110,12 @@ bot.on('photo', async (ctx) => {
     const user = ctx.from.first_name || "Usuario";
     const username = ctx.from.username ? `@${ctx.from.username}` : "Sin @";
 
-    await ctx.reply("⏳ **Comprobante recibido.** El administrador está verificando la transacción en la Wallet, espera un momento.");
+    await ctx.reply("⏳ **Comprobante recibido.** El administrador está verificando la transacción, espera un momento.");
 
     const report = `📸 **NUEVO COMPROBANTE RECIBIDO**\n` +
                    `👤 Cliente: ${user} (${username})\n` +
                    `🆔 ID Telegram: \`${ctx.from.id}\`\n` +
-                   `⏳ Estado: Esperando revisión en Wallet`;
+                   `⏳ Estado: Esperando revisión manual (Wallet o Zelle)`;
     
     try {
         await bot.telegram.sendMessage(GRUPO_PAGOS, report);
@@ -126,7 +127,7 @@ bot.on('photo', async (ctx) => {
 
 // 4. ARRANQUE DEL BOT LIMPIANDO CONFLICTOS 409
 bot.start((ctx) => {
-    ctx.reply("👋 ¡Bienvenido! Envía la captura de tu pago aquí para habilitar tu servicio de inmediato.");
+    ctx.reply("👋 ¡Bienvenido! Envía la captura de tu pago (Wallet o Zelle) aquí para habilitar tu servicio de inmediato.");
 });
 
 // Asegura limpiar conexiones colgadas en Telegram antes de encender el bot de nuevo
