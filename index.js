@@ -5,7 +5,7 @@ const app = express();
 app.use(express.json());
 
 // Verificación de salud del contenedor en Render
-app.get('/', (req, res) => res.send('Bot Pagocliente_bot (V12 - Con Guía de Usuario) Activo 🚀'));
+app.get('/', (req, res) => res.send('Bot Pagocliente_bot (V13 - Checkout Corregido) Activo 🚀'));
 app.listen(process.env.PORT || 3000);
 
 const bot = new Telegraf(process.env.BOT_TOKEN.trim());
@@ -79,7 +79,6 @@ bot.start(async (ctx) => {
 
         if (!isNaN(stars)) {
             try {
-                // Mensaje de guía justo antes de lanzarle la factura para que entienda dónde está parado
                 await ctx.reply(
                     `👋 **¡Bienvenido a la pasarela segura!**\n\n` +
                     `Estás aquí para completar el pago de **${modelo.toUpperCase()}** de forma totalmente protegida.\n\n` +
@@ -106,6 +105,21 @@ bot.start(async (ctx) => {
     }
 
     ctx.reply("👋 ¡Bienvenido! Envía la captura de tu pago aquí para habilitar tu servicio de inmediato.\n\n👋 Welcome! Send your payment screenshot here to activate your service immediately.");
+});
+
+// =========================================================================
+// ⚡ PIEZA CRÍTICA COMODÍN: MANEJADOR DE PRE-CHECKOUT (Resuelve la carga infinita)
+// =========================================================================
+// Este bloque intercepta la carga en pantalla de la foto y le da luz verde a Telegram para cobrar
+bot.on('pre_checkout_query', async (ctx) => {
+    try {
+        // Le responde "true" a Telegram diciendo que todo está en orden para proceder con el descuento de saldo
+        await ctx.answerPreCheckoutQuery(true);
+    } catch (err) {
+        console.error("Error respondiendo al PreCheckoutQuery:", err);
+        // En caso de fallo grave, cancela la animación avisando al usuario
+        await ctx.answerPreCheckoutQuery(false, "❌ Error de conexión temporal. Inténtalo de nuevo.");
+    }
 });
 
 // 3. COMANDO TRADICIONAL (Uso en el chat directo del bot: /cobrar 30 Maria)
@@ -156,7 +170,6 @@ bot.on('successful_payment', async (ctx) => {
     const clienteName = ctx.from.first_name || "Usuario";
     const clienteUser = ctx.from.username ? `@${ctx.from.username}` : "Sin @";
 
-    // Confirmación y botón de retorno claro
     await ctx.reply(
         "✅ **¡Perfecto! Tu pago con tarjeta ha sido verificado con éxito.** Tus servicios ya están activos.\n\n" +
         "↩️ Toca el botón de aquí abajo para regresar de inmediato a tu conversación y continuar disfrutando.",
@@ -205,7 +218,7 @@ bot.telegram.deleteWebhook()
     .then(() => {
         return bot.launch({ dropPendingUpdates: true });
     })
-    .then(() => console.log('Bot Pagocliente_bot inicializado correctamente con Guías de Usuario 🚀'))
+    .then(() => console.log('Bot Pagocliente_bot inicializado correctamente con Corrección de Checkout 🚀'))
     .catch((err) => console.error('Error crítico al lanzar el bot:', err));
 
 // Manejo seguro del apagado
