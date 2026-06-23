@@ -110,19 +110,53 @@ bot.command('cobrar', async (ctx) => {
 bot.on('photo', async (ctx) => {
     const user = ctx.from.first_name || "Usuario";
     const username = ctx.from.username ? `@${ctx.from.username}` : "Sin @";
+    const userId = ctx.from.id;
 
     await ctx.reply("⏳ **Comprobante recibido.** El administrador está verificando la transacción en la Wallet, espera un momento.");
 
     const report = `📸 **NUEVO COMPROBANTE RECIBIDO**\n` +
                    `👤 Cliente: ${user} (${username})\n` +
-                   `🆔 ID Telegram: \`${ctx.from.id}\`\n` +
+                   `🆔 ID Telegram: \`${userId}\`\n` +
                    `⏳ Estado: Esperando revisión en Wallet`;
     
     try {
-        await bot.telegram.sendMessage(GRUPO_PAGOS, report);
+        // Envía el reporte de texto con el botón para confirmar acoplado al ID del usuario
+        await bot.telegram.sendMessage(GRUPO_PAGOS, report, Markup.inlineKeyboard([
+            [Markup.button.callback('✅ Confirmar Pago', `confirmar_${userId}`)]
+        ]));
+        // Reenvía la imagen del comprobante justo después
         await ctx.forwardMessage(GRUPO_PAGOS);
     } catch (err) {
         console.error("Error reenviando el comprobante al grupo de control:", err);
+    }
+});
+
+// 3.5 MANEJO DEL BOTÓN ACCIONADO EN EL GRUPO DE CONTROL
+bot.action(/^confirmar_(\d+)$/, async (ctx) => {
+    const targetUserId = ctx.match[1];
+    const adminName = ctx.from.first_name || "Administrador";
+
+    const exitoTexto = `✅ **¡PAGO RECIBIDO CON ÉXITO!** 💎\n\n` +
+                       `🇪🇸 Tu transacción ha sido validada correctamente por nuestro equipo.\n` +
+                       `🔥 **¡Prepárate para la diversión!** Ponte en contacto en el chat privado para iniciar tu servicio de inmediato.\n\n` +
+                       `🇺🇸 Your transaction has been successfully validated.\n` +
+                       `🔥 **Get ready for fun!** Connect back to start your service right now.`;
+
+    try {
+        // Enviar notificación de éxito directo al cliente en privado
+        await bot.telegram.sendMessage(targetUserId, exitoTexto, { parse_mode: 'Markdown' });
+        
+        // Notificar en el grupo que el botón fue pulsado con éxito
+        await ctx.answerCbQuery("¡Pago confirmado y notificado al cliente! 🔥");
+
+        // Editar el texto original del reporte en el grupo para archivar quién lo aprobó
+        const originalText = ctx.callbackQuery.message.text;
+        const updatedText = `${originalText}\n\n🟢 **APROBADO POR:** ${adminName} ✅`;
+        
+        await ctx.editMessageText(updatedText, Markup.inlineKeyboard([])); // Quita el botón para evitar doble clic
+    } catch (err) {
+        console.error("Error al procesar la confirmación de pago:", err);
+        await ctx.answerCbQuery("❌ Error: No se pudo enviar el mensaje al usuario.", { show_alert: true });
     }
 });
 
