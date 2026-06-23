@@ -19,6 +19,35 @@ const NOMBRE_BOT = "Pagocliente_bot";
 // ID del grupo para control de operaciones e ingresos
 const GRUPO_PAGOS = parseInt(process.env.GRUPO_CONTROL_ID);
 
+// 🚨 REGISTRO OFICIAL DE MODELOS LATIN CONNECT
+const REGISTRO_MODELOS = {
+    "CATALINA": 8860149047,
+    "CATALINALATINCONNECT": 8860149047,
+    
+    "NATY": 8842392864,
+    "NATYQUEEN": 8842392864,
+    "NATYQUEENLATINCONNECT": 8842392864,
+    
+    "VICTORIA": 8794256442,
+    "VICTORIALATINCONNECT": 8794256442,
+    
+    "KIARA": 8643531437,
+    "KIARALATINCONNECT": 8643531437,
+    
+    "GABRIELA": 8934690346,
+    "GABY": 8934690346,
+    "GABYLATINCONNECTION": 8934690346,
+    
+    "MEGAN": 8838802906,
+    "MEGGAN": 8838802906,
+    "MEGGANDOLLSLATINCONNECT": 8838802906,
+    
+    "SOFIA": 8737222053,
+    "SOFIALATINCONNECT": 8737222053
+};
+
+// =========================================================================
+
 // 1. MODO INLINE (Escribiendo @Pagocliente_bot [monto] [modelo] en chats privados)
 bot.on('inline_query', async (ctx) => {
     const query = ctx.inlineQuery.query;
@@ -114,17 +143,29 @@ bot.on('photo', async (ctx) => {
 
     await ctx.reply("⏳ **Comprobante recibido.** El administrador está verificando la transacción en la Wallet, espera un momento.");
 
+    // Analizar el texto descriptivo de la foto
+    const captionTexto = ctx.message.caption || "";
+    const palabras = captionTexto.split(/[\s@_]+/); // Separa por espacios, arrobas o guiones bajos
+    let modeloDetectada = "DESCONOCIDA";
+
+    for (const palabra of palabras) {
+        const limpia = palabra.toUpperCase().trim();
+        if (REGISTRO_MODELOS[limpia]) {
+            modeloDetectada = limpia;
+            break;
+        }
+    }
+
     const report = `📸 **NUEVO COMPROBANTE RECIBIDO**\n` +
                    `👤 Cliente: ${user} (${username})\n` +
                    `🆔 ID Telegram: \`${userId}\`\n` +
+                   `👩‍🦰 Modelo Tentativa: **${modeloDetectada}**\n` +
                    `⏳ Estado: Esperando revisión en Wallet`;
     
     try {
-        // Envía el reporte de texto con el botón para confirmar acoplado al ID del usuario
         await bot.telegram.sendMessage(GRUPO_PAGOS, report, Markup.inlineKeyboard([
-            [Markup.button.callback('✅ Confirmar Pago', `confirmar_${userId}`)]
+            [Markup.button.callback('✅ Confirmar Pago', `confirmar_${userId}_${modeloDetectada}`)]
         ]));
-        // Reenvía la imagen del comprobante justo después
         await ctx.forwardMessage(GRUPO_PAGOS);
     } catch (err) {
         console.error("Error reenviando el comprobante al grupo de control:", err);
@@ -132,8 +173,9 @@ bot.on('photo', async (ctx) => {
 });
 
 // 3.5 MANEJO DEL BOTÓN ACCIONADO EN EL GRUPO DE CONTROL
-bot.action(/^confirmar_(\d+)$/, async (ctx) => {
+bot.action(/^confirmar_(\d+)_(.+)$/, async (ctx) => {
     const targetUserId = ctx.match[1];
+    const nombreModelo = ctx.match[2];
     const adminName = ctx.from.first_name || "Administrador";
 
     const exitoTexto = `✅ **¡PAGO RECIBIDO CON ÉXITO!** 💎\n\n` +
@@ -142,21 +184,39 @@ bot.action(/^confirmar_(\d+)$/, async (ctx) => {
                        `🇺🇸 Your transaction has been successfully validated.\n` +
                        `🔥 **Get ready for fun!** Connect back to start your service right now.`;
 
+    const avisoModeloTexto = `💰 **¡PAGO CONFIRMADO!** 💰\n\n` +
+                             `👑 Hola, el administrador ha validado un pago para ti.\n` +
+                             `🚀 **¡Procede a tu show de inmediato!** Dale la mejor atención a tu cliente. 🔥`;
+
+    let infoModeloAdicional = "";
+
     try {
-        // Enviar notificación de éxito directo al cliente en privado
+        // 1. Enviar notificación al cliente
         await bot.telegram.sendMessage(targetUserId, exitoTexto, { parse_mode: 'Markdown' });
         
-        // Notificar en el grupo que el botón fue pulsado con éxito
-        await ctx.answerCbQuery("¡Pago confirmado y notificado al cliente! 🔥");
-
-        // Editar el texto original del reporte en el grupo para archivar quién lo aprobó
-        const originalText = ctx.callbackQuery.message.text;
-        const updatedText = `${originalText}\n\n🟢 **APROBADO POR:** ${adminName} ✅`;
+        // 2. Enviar notificación directa a la modelo registrada
+        if (nombreModelo !== "DESCONOCIDA" && REGISTRO_MODELOS[nombreModelo]) {
+            const modeloChatId = REGISTRO_MODELOS[nombreModelo];
+            try {
+                await bot.telegram.sendMessage(modeloChatId, avisoModeloTexto, { parse_mode: 'Markdown' });
+                infoModeloAdicional = `\n📱 **Notificación enviada a:** ${nombreModelo} (Privado)`;
+            } catch (errModelo) {
+                console.error(`No se pudo enviar privado a la modelo ${nombreModelo}:`, errModelo);
+                infoModeloAdicional = `\n⚠️ **Alerta:** No se pudo enviar privado a ${nombreModelo} (¿Le dio /start al bot?)`;
+            }
+        } else {
+            infoModeloAdicional = `\n⚠️ **Aviso:** No se detectó modelo asignada automáticamente para esta orden en el texto.`;
+        }
         
-        await ctx.editMessageText(updatedText, Markup.inlineKeyboard([])); // Quita el botón para evitar doble clic
+        await ctx.answerCbQuery("¡Pago confirmado y alertas enviadas! 🔥");
+
+        const originalText = ctx.callbackQuery.message.text;
+        const updatedText = `${originalText}\n\n🟢 **APROBADO POR:** ${adminName} ✅${infoModeloAdicional}`;
+        
+        await ctx.editMessageText(updatedText, Markup.inlineKeyboard([])); 
     } catch (err) {
         console.error("Error al procesar la confirmación de pago:", err);
-        await ctx.answerCbQuery("❌ Error: No se pudo enviar el mensaje al usuario.", { show_alert: true });
+        await ctx.answerCbQuery("❌ Error general al procesar la confirmación.", { show_alert: true });
     }
 });
 
