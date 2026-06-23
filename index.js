@@ -4,7 +4,7 @@ const express = require('express');
 const app = express();
 app.use(express.json());
 
-app.get('/', (req, res) => res.send('Bot Pagocliente_bot (V12 - Flujo Total) Activo 🚀'));
+app.get('/', (req, res) => res.send('Bot Pagocliente_bot (V13 - Antifraude) Activo 🚀'));
 app.listen(process.env.PORT || 3000);
 
 const bot = new Telegraf(process.env.BOT_TOKEN.trim());
@@ -24,6 +24,56 @@ const REGISTRO_MODELOS = {
     "MEGAN": 8838802906,
     "SOFIA": 8737222053
 };
+
+// 🛑 LISTA NEGRA DE PALABRAS PROHIBIDAS (Filtro Antifraude)
+const PALABRAS_PROHIBIDAS = [
+    "WHATSAPP", "WHATSAP", "WSP", "WASAP", "NUMERO", "NUMBER", "CELULAR", "CEL", "TELEFONO", "PHONE",
+    "INSTAGRAM", "INSTA", "IG", "FACEBOOK", "FB", "TIKTOK", "TWITTER", "TELEGRAM", "USER", "CONTACTO",
+    "CONTACT", "ESCRIBEME", "ESCRIBIRME", "PASAME", "DAME", "LINK", "ENLACE", "URL", "PAGINA",
+    "+57", "+1", "+34", "+58", "@" // Detecta prefijos telefónicos comunes y arrobas de usuarios
+];
+
+// =========================================================================
+
+// 🚀 SISTEMA DE INTERCEPTACIÓN Y FILTRADO DE MENSAJES (PROTECCIÓN ANTI-ROBO)
+bot.on('text', async (ctx, next) => {
+    // Si el mensaje viene del grupo de control, lo ignoramos y dejamos que continúe
+    if (ctx.chat.id === GRUPO_PAGOS) return next();
+
+    const textoMensaje = ctx.message.text;
+    const textoMayusculas = textoMensaje.toUpperCase();
+    const senderId = ctx.from.id;
+    const senderName = ctx.from.first_name || "Usuario";
+    const senderUsername = ctx.from.username ? `@${ctx.from.username}` : "Sin @";
+
+    // Verificar si el mensaje contiene alguna palabra prohibida
+    const contienePalabraProhibida = PALABRAS_PROHIBIDAS.some(palabra => textoMayusculas.includes(palabra));
+
+    if (contienePalabraProhibida) {
+        // 1. Borrar o bloquear el mensaje enviando una advertencia al infractor
+        await ctx.reply("⚠️ **POLÍTICA DE SEGURIDAD:** Por normas de la plataforma, está estrictamente prohibido intercambiar datos de contacto externos (WhatsApp, Redes Sociales o Teléfonos). Tu mensaje no ha sido enviado.");
+
+        // 2. Armar reporte de alerta roja para el administrador
+        const alertaFraude = `🚨 **ALERTA ROJA: INTENTO DE DESVÍO DE CLIENTE** 🚨\n\n` +
+                             `👤 **Infractor:** ${senderName} (${senderUsername})\n` +
+                             `🆔 **ID Telegram:** \`${senderId}\`\n` +
+                             `💬 **Mensaje Interceptado:**\n_"${textoMensaje}"_\n\n` +
+                             `🛡️ _El mensaje fue bloqueado automáticamente por el sistema de seguridad de Latin Connect._`;
+
+        try {
+            await bot.telegram.sendMessage(GRUPO_PAGOS, alertaFraude);
+        } catch (err) {
+            console.error("Error enviando alerta de fraude al grupo:", err);
+        }
+        
+        return; // Corta la ejecución del mensaje, no se envía a nadie más
+    }
+
+    // Si el mensaje es limpio, dejamos que siga el flujo normal del bot
+    return next();
+});
+
+// =========================================================================
 
 // 1. MODO INLINE
 bot.on('inline_query', async (ctx) => {
@@ -149,19 +199,17 @@ bot.action(/^menu_(\d+)_(.+)$/, async (ctx) => {
     await ctx.editMessageText(`⚙️ **PASO 2: CONFIRMACIÓN DE OPERACIÓN**\n\n¿A qué modelo deseas asignarle este pago y enviar notificación de Show? \n_(Detectada originalmente: ${detectada})_`, Markup.inlineKeyboard(botones));
 });
 
-// 3.5 CONFIRMACIÓN TRIPLE (CLIENTE, MODELO Y CHAT DE OPERACIONES)
+// 3.5 CONFIRMACIÓN TRIPLE
 bot.action(/^confirmar_(\d+)_(.+)$/, async (ctx) => {
     const targetUserId = ctx.match[1];
     const nombreModelo = ctx.match[2];
     const adminName = ctx.from.first_name || "Administrador";
 
-    // MENSAJE 1: Para el chat del Usuario/Cliente
     const exitoTexto = `✅ **¡PAGO CONFIRMADO!** 💎\n\n` +
                        `🇪🇸 Tu transacción ha sido validada correctamente.\n` +
                        `🔥 **El pago fue confirmado, puedes proceder con el show.** ponte en contacto de inmediato.\n\n` +
                        `🇺🇸 Payment confirmed, you can proceed with the show.`;
 
-    // MENSAJE 2: Para el chat privado de la Modelo
     const avisoModeloTexto = `💰 **¡PAGO CONFIRMADO!** 💰\n\n` +
                              `👑 Hola ${nombreModelo}, el administrador ha verificado tu pago.\n` +
                              `🚀 **El pago fue confirmado, procede a tu show de inmediato.** 🔥`;
@@ -169,17 +217,15 @@ bot.action(/^confirmar_(\d+)_(.+)$/, async (ctx) => {
     let infoModeloAdicional = "";
 
     try {
-        // 1. Notificar al cliente en su chat privado
         await bot.telegram.sendMessage(targetUserId, exitoTexto, { parse_mode: 'Markdown' });
         
-        // 2. Notificar a la modelo elegida en su chat privado
         if (nombreModelo !== "NINGUNA" && REGISTRO_MODELOS[nombreModelo]) {
             const modeloChatId = REGISTRO_MODELOS[nombreModelo];
             try {
                 await bot.telegram.sendMessage(modeloChatId, avisoModeloTexto, { parse_mode: 'Markdown' });
                 infoModeloAdicional = `\n📱 **Notificación enviada a:** ${nombreModelo} (Privado) ✅`;
             } catch (errModelo) {
-                infoModeloAdicional = `\n⚠️ **Alerta:** No se pudo enviar privado a ${nombreModelo}. (Asegúrate de que ella haya iniciado el bot).`;
+                infoModeloAdicional = `\n⚠️ **Alerta:** No se pudo enviar privado a ${nombreModelo}.`;
             }
         } else {
             infoModeloAdicional = `\n⚠️ **Aviso:** No se asignó a ninguna modelo específica.`;
@@ -187,7 +233,6 @@ bot.action(/^confirmar_(\d+)_(.+)$/, async (ctx) => {
         
         await ctx.answerCbQuery("¡Show Autorizado Exitosamente! 🚀");
 
-        // MENSAJE 3: Modificación del chat de operaciones (Grupo) para dejar constancia pública
         const updatedText = `🟢 **¡PAGO CONFIRMED & SHOW AUTORIZADO!** 🎬\n\n` +
                             `👤 **ID Cliente:** \`${targetUserId}\`\n` +
                             `👩‍🦰 **Modelo Asignada:** ${nombreModelo}\n` +
@@ -216,7 +261,7 @@ bot.start((ctx) => {
 
 bot.telegram.deleteWebhook()
     .then(() => bot.launch({ dropPendingUpdates: true }))
-    .then(() => console.log('Bot v12 inicializado correctamente 🚀'))
+    .then(() => console.log('Bot V13 Antifraude activo en el sistema 🚀'))
     .catch((err) => console.error(err));
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
