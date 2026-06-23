@@ -4,7 +4,7 @@ const express = require('express');
 const app = express();
 app.use(express.json());
 
-app.get('/', (req, res) => res.send('Bot Pagocliente_bot (V11 - Estable) Activo 🚀'));
+app.get('/', (req, res) => res.send('Bot Pagocliente_bot (V12 - Flujo Total) Activo 🚀'));
 app.listen(process.env.PORT || 3000);
 
 const bot = new Telegraf(process.env.BOT_TOKEN.trim());
@@ -108,7 +108,6 @@ bot.on('photo', async (ctx) => {
 
     await ctx.reply("⏳ **Comprobante recibido.** El administrador está verificando la transacción en la Wallet, espera un momento.");
 
-    // Intentar auto-detectar por si acaso
     const captionTexto = ctx.message.caption || "";
     let modeloDetectada = "DESCONOCIDA";
     for (const key of Object.keys(REGISTRO_MODELOS)) {
@@ -125,7 +124,6 @@ bot.on('photo', async (ctx) => {
                    `⏳ Estado: Esperando revisión de pago`;
     
     try {
-        // Al darle clic, abrirá el menú selectivo para asegurar la entrega
         await bot.telegram.sendMessage(GRUPO_PAGOS, report, Markup.inlineKeyboard([
             [Markup.button.callback('➡️ Procesar y Elegir Modelo', `menu_${userId}_${modeloDetectada}`)]
         ]));
@@ -135,12 +133,11 @@ bot.on('photo', async (ctx) => {
     }
 });
 
-// 3.4 PASO INTERMEDIO: MOSTRAR OPCIONES DE MODELOS EN EL GRUPO
+// 3.4 PASO INTERMEDIO: SELECCIÓN DE MODELO EN EL GRUPO
 bot.action(/^menu_(\d+)_(.+)$/, async (ctx) => {
     const targetUserId = ctx.match[1];
     const detectada = ctx.match[2];
 
-    // Creamos botones dinámicos en el grupo para que el administrador elija quién se lleva el show
     const botones = [
         [Markup.button.callback(`Catalina`, `confirmar_${targetUserId}_CATALINA`), Markup.button.callback(`Naty`, `confirmar_${targetUserId}_NATY`)],
         [Markup.button.callback(`Victoria`, `confirmar_${targetUserId}_VICTORIA`), Markup.button.callback(`Kiara`, `confirmar_${targetUserId}_KIARA`)],
@@ -152,44 +149,52 @@ bot.action(/^menu_(\d+)_(.+)$/, async (ctx) => {
     await ctx.editMessageText(`⚙️ **PASO 2: CONFIRMACIÓN DE OPERACIÓN**\n\n¿A qué modelo deseas asignarle este pago y enviar notificación de Show? \n_(Detectada originalmente: ${detectada})_`, Markup.inlineKeyboard(botones));
 });
 
-// 3.5 PROCESAMIENTO FINAL Y ENVÍO INDIVIDUAL
+// 3.5 CONFIRMACIÓN TRIPLE (CLIENTE, MODELO Y CHAT DE OPERACIONES)
 bot.action(/^confirmar_(\d+)_(.+)$/, async (ctx) => {
     const targetUserId = ctx.match[1];
     const nombreModelo = ctx.match[2];
     const adminName = ctx.from.first_name || "Administrador";
 
-    const exitoTexto = `✅ **¡PAGO RECIBIDO CON ÉXITO!** 💎\n\n` +
-                       `🇪🇸 Tu transacción ha sido validada correctamente por nuestro equipo.\n` +
-                       `🔥 **¡Prepárate para la diversión!** Ponte en contacto en el chat privado para iniciar tu servicio de inmediato.\n\n` +
-                       `🇺🇸 Your transaction has been successfully validated.\n` +
-                       `🔥 **Get ready for fun!** Connect back to start your service right now.`;
+    // MENSAJE 1: Para el chat del Usuario/Cliente
+    const exitoTexto = `✅ **¡PAGO CONFIRMADO!** 💎\n\n` +
+                       `🇪🇸 Tu transacción ha sido validada correctamente.\n` +
+                       `🔥 **El pago fue confirmado, puedes proceder con el show.** ponte en contacto de inmediato.\n\n` +
+                       `🇺🇸 Payment confirmed, you can proceed with the show.`;
 
+    // MENSAJE 2: Para el chat privado de la Modelo
     const avisoModeloTexto = `💰 **¡PAGO CONFIRMADO!** 💰\n\n` +
-                             `👑 Hola, el administrador ha validado un pago para ti.\n` +
-                             `🚀 **¡Procede a tu show de inmediato!** Dale la mejor atención a tu cliente. 🔥`;
+                             `👑 Hola ${nombreModelo}, el administrador ha verificado tu pago.\n` +
+                             `🚀 **El pago fue confirmado, procede a tu show de inmediato.** 🔥`;
 
     let infoModeloAdicional = "";
 
     try {
-        // 1. Notificar al cliente
+        // 1. Notificar al cliente en su chat privado
         await bot.telegram.sendMessage(targetUserId, exitoTexto, { parse_mode: 'Markdown' });
         
-        // 2. Notificar a la modelo seleccionada por botón
+        // 2. Notificar a la modelo elegida en su chat privado
         if (nombreModelo !== "NINGUNA" && REGISTRO_MODELOS[nombreModelo]) {
             const modeloChatId = REGISTRO_MODELOS[nombreModelo];
             try {
                 await bot.telegram.sendMessage(modeloChatId, avisoModeloTexto, { parse_mode: 'Markdown' });
-                infoModeloAdicional = `\n📱 **Notificación enviada a:** ${nombreModelo} ✅`;
+                infoModeloAdicional = `\n📱 **Notificación enviada a:** ${nombreModelo} (Privado) ✅`;
             } catch (errModelo) {
-                infoModeloAdicional = `\n⚠️ **Alerta:** No se pudo enviar privado a ${nombreModelo}. Asegúrate de que haya iniciado el bot dándole a /start.`;
+                infoModeloAdicional = `\n⚠️ **Alerta:** No se pudo enviar privado a ${nombreModelo}. (Asegúrate de que ella haya iniciado el bot).`;
             }
         } else {
-            infoModeloAdicional = `\n⚠️ **Aviso:** No se envió notificación privada a ninguna modelo.`;
+            infoModeloAdicional = `\n⚠️ **Aviso:** No se asignó a ninguna modelo específica.`;
         }
         
-        await ctx.answerCbQuery("Operación completada con éxito");
+        await ctx.answerCbQuery("¡Show Autorizado Exitosamente! 🚀");
 
-        const updatedText = `🟢 **PAGO APROBADO COMPLETAMENTE**\n👤 ID Cliente: \`${targetUserId}\`\n🤵 Administrador: ${adminName}${infoModeloAdicional}`;
+        // MENSAJE 3: Modificación del chat de operaciones (Grupo) para dejar constancia pública
+        const updatedText = `🟢 **¡PAGO CONFIRMED & SHOW AUTORIZADO!** 🎬\n\n` +
+                            `👤 **ID Cliente:** \`${targetUserId}\`\n` +
+                            `👩‍🦰 **Modelo Asignada:** ${nombreModelo}\n` +
+                            `🤵 **Aprobado por:** ${adminName}\n` +
+                            `${infoModeloAdicional}\n\n` +
+                            `📣 _¡El cliente y la modelo ya fueron notificados en sus chats privados para iniciar el show ahora mismo!_`;
+                            
         await ctx.editMessageText(updatedText, Markup.inlineKeyboard([])); 
     } catch (err) {
         console.error(err);
@@ -211,7 +216,7 @@ bot.start((ctx) => {
 
 bot.telegram.deleteWebhook()
     .then(() => bot.launch({ dropPendingUpdates: true }))
-    .then(() => console.log('Bot reconfigurado con panel de control activo 🚀'))
+    .then(() => console.log('Bot v12 inicializado correctamente 🚀'))
     .catch((err) => console.error(err));
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
